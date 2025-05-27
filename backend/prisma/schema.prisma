@@ -1,0 +1,108 @@
+// Prisma Schema File
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Criar Models no Banco de Dados PostgreSQL
+// npx prisma migrate dev 
+
+// Modelo de Pacientes
+model Patient {
+  id         String        @id @default(uuid())
+  name       String 
+  cpf        String        @unique
+  date_birth DateTime 
+  andress    String 
+  phone      String  
+  created_at DateTime      @default(now()) 
+  updated_at DateTime      @default(now())  
+
+  consultations Consultation[]
+
+  @@map("patients")
+}
+
+// Modelo de Médicos
+model Doctor {
+  id         String        @id @default(uuid())
+  name       String 
+  crm        String        @unique
+  specialty  String 
+  phone      String
+  email      String
+  created_at DateTime      @default(now()) 
+  updated_at DateTime      @default(now())  
+
+  consultations Consultation[]
+
+  @@map("doctors")
+}
+
+// Modelo de Consultas
+model Consultation {
+  id         String        @id @default(uuid())
+  date       DateTime
+  time       String
+  doctor_id  String
+  patient_id String      
+  created_at DateTime      @default(now()) 
+  updated_at DateTime      @default(now())  
+
+  patient    Patient       @relation(fields: [patient_id], references: [id])
+  doctor     Doctor        @relation(fields: [doctor_id], references: [id])
+  
+  // Relações com prontuários e receitas
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
+
+  @@map("consultations")
+}
+
+// Modelo de Prontuários
+model MedicalRecord {
+  id              String       @id @default(uuid())
+  consultation_id String
+  notes           String       // Anotações do médico
+  diagnosis       String       // Diagnóstico
+  created_at      DateTime     @default(now()) 
+  updated_at      DateTime     @default(now())
+  
+  consultation    Consultation @relation(fields: [consultation_id], references: [id])
+
+  @@map("medical_records")
+}
+
+// Modelo de Receitas Médicas
+model Prescription {
+  id              String       @id @default(uuid())
+  consultation_id String
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @default(now())
+  
+  consultation    Consultation @relation(fields: [consultation_id], references: [id])
+  medications     Medication[]
+
+  @@map("prescriptions")
+}
+
+// Modelo de Medicamentos na Receita
+model Medication {
+  id              String       @id @default(uuid())
+  prescription_id String
+  name            String       // Nome do medicamento
+  dosage          String       // Dosagem
+  instructions    String       // Instruções de uso
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @default(now())
+  
+  prescription    Prescription @relation(fields: [prescription_id], references: [id])
+
+  @@map("medications")
+}
