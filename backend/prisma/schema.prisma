@@ -1,8 +1,7 @@
 // Prisma Schema File
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"  
 }
 
 datasource db {
@@ -13,13 +12,27 @@ datasource db {
 // Criar Models no Banco de Dados PostgreSQL
 // npx prisma migrate dev 
 
+// Modelo de Usuários
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("users")
+}
+
+
 // Modelo de Pacientes
 model Patient {
   id         String        @id @default(uuid())
   name       String 
   cpf        String        @unique
   date_birth DateTime 
-  andress    String 
+  address    String 
   phone      String  
   created_at DateTime      @default(now()) 
   updated_at DateTime      @default(now())  

@@ -33,6 +33,6 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 // Rota de teste
 app.listen(4000, () => {
-    console.log("Servidor Oline");
+    console.log("Servidor Rodando na porta 4000");
 });
 
