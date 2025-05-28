@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// é responsável por deletar um prontuário médico
 class DeleteMedicalRecordService {
   async execute(id: string) {
     // Verificar se o prontuário existe
@@ -9,6 +11,7 @@ class DeleteMedicalRecordService {
       }
     });
 
+    // Se o prontuário não existir, lançar um erro
     if (!medicalRecordExists) {
       throw new Error("Prontuário não encontrado");
     }
@@ -18,11 +21,13 @@ class DeleteMedicalRecordService {
       where: {
         id
       },
+      // Incluir os dados da consulta relacionada
       include: {
         consultation: true
       }
     });
 
+    // Retorna o prontuário excluído
     return deletedMedicalRecord;
   }
 }

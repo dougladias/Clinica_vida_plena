@@ -31,7 +31,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     })
 })
 
-// Rota de teste
+// Rota do Servidor
 app.listen(4000, () => {
     console.log("Servidor Rodando na porta 4000");
 });

@@ -1,16 +1,20 @@
 import prismaClient from "../../prisma";
 
+
+// é a interface que define os dados necessários para criar medicamentos em uma receita
 interface MedicationInput {
   name: string;
   dosage: string;
   instructions: string;
 }
 
+// é a interface que define os dados necessários para criar uma receita médica
 interface PrescriptionRequest {
   consultation_id: string;
   medications: MedicationInput[];
 }
 
+// Serviço responsável por criar uma receita médica com medicamentos
 class CreatePrescriptionService {
   async execute({ consultation_id, medications }: PrescriptionRequest) {
     // Validações básicas
@@ -18,6 +22,7 @@ class CreatePrescriptionService {
       throw new Error("ID da consulta é obrigatório");
     }
     
+    // Verificar se a lista de medicamentos é fornecida
     if (!medications || medications.length === 0) {
       throw new Error("Pelo menos um medicamento deve ser informado");
     }
@@ -29,6 +34,7 @@ class CreatePrescriptionService {
       }
     });
 
+    // Se a consulta não existir, lançar um erro
     if (!consultationExists) {
       throw new Error("Consulta não encontrada");
     }
@@ -59,6 +65,7 @@ class CreatePrescriptionService {
         where: {
           id: newPrescription.id
         },
+        // Incluir os dados da consulta, médico e paciente relacionados
         include: {
           consultation: {
             include: {
@@ -71,6 +78,7 @@ class CreatePrescriptionService {
       });
     });
 
+    // Se a receita não foi criada, lançar um erro
     return prescription;
   }
 }

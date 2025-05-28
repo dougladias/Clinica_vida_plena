@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// é interface responsável por atualizar um prontuário médico
 interface AddMedicationRequest {
   prescription_id: string;
   name: string;
@@ -7,6 +9,7 @@ interface AddMedicationRequest {
   instructions: string;
 }
 
+// Serviço responsável por adicionar um medicamento a uma receita médica
 class AddMedicationService {
   async execute({ prescription_id, name, dosage, instructions }: AddMedicationRequest) {
     // Validações básicas
@@ -14,14 +17,17 @@ class AddMedicationService {
       throw new Error("ID da receita é obrigatório");
     }
     
+    // Verifica se o nome do medicamento é fornecido
     if (!name) {
       throw new Error("Nome do medicamento é obrigatório");
     }
 
+    // Verifica se a dosagem do medicamento é fornecida
     if (!dosage) {
       throw new Error("Dosagem do medicamento é obrigatória");
     }
 
+    // Verifica se as instruções de uso do medicamento são fornecidas
     if (!instructions) {
       throw new Error("Instruções de uso são obrigatórias");
     }
@@ -33,6 +39,7 @@ class AddMedicationService {
       }
     });
 
+    // Se a receita não existir, lançar um erro
     if (!prescriptionExists) {
       throw new Error("Receita médica não encontrada");
     }
@@ -52,6 +59,7 @@ class AddMedicationService {
       where: {
         id: prescription_id
       },
+      // Incluir os dados da consulta, médico e paciente relacionados
       include: {
         consultation: {
           include: {
@@ -63,6 +71,7 @@ class AddMedicationService {
       }
     });
 
+    // Se a receita não tiver sido atualizada, lançar um erro
     return {
       medication,
       prescription: updatedPrescription

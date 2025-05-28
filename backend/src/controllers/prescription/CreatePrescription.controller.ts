@@ -3,6 +3,8 @@ import { CreatePrescriptionService } from '../../services/prescription/CreatePre
 
 class CreatePrescriptionController {
   async handle(request: Request, response: Response) {
+
+    // Método responsável por criar uma prescrição médica
     try {
       const { consultation_id, medications } = request.body;
 
@@ -25,18 +27,25 @@ class CreatePrescriptionController {
         }
       }
 
+      // Cria uma instância do serviço de criação de prescrição
       const createPrescriptionService = new CreatePrescriptionService();
 
+      // Tenta criar a prescrição com os dados fornecidos
       const prescription = await createPrescriptionService.execute({
         consultation_id,
         medications
       });
-
+      
+      // Se a prescrição for criada com sucesso, retorna o objeto da prescrição
       return response.status(201).json(prescription);
     } catch (error) {
+
+      // Trata erros específicos e retorna mensagens apropriadas
       if (error instanceof Error) {
         return response.status(400).json({ error: error.message });
       }
+
+      // Se ocorrer um erro inesperado, retorna um erro genérico
       return response.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

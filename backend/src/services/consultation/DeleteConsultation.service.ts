@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// É responsável por Deletar uma nova consulta
 class DeleteConsultationService {
   async execute(id: string) {
     // Verificar se a consulta existe
@@ -13,6 +15,7 @@ class DeleteConsultationService {
       }
     });
 
+    // Se a consulta não existir, lançar um erro
     if (!consultationExists) {
       throw new Error("Consulta não encontrada");
     }
@@ -33,6 +36,7 @@ class DeleteConsultationService {
       }
     });
 
+    // Retorna a consulta excluída
     return deletedConsultation;
   }
 }

@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// É responsável por Deletar um novo médico
 class DeleteDoctorService {
   async execute(id: string) {
     // Verificar se o médico existe
@@ -9,6 +11,7 @@ class DeleteDoctorService {
       }
     });
 
+    // Se o médico não existir, lançar um erro
     if (!doctorExists) {
       throw new Error("Médico não encontrado");
     }
@@ -20,6 +23,7 @@ class DeleteDoctorService {
       }
     });
 
+    // Se o médico possui consultas, lançar um erro
     if (consultations.length > 0) {
       throw new Error("Não é possível excluir um médico que possui consultas registradas");
     }
@@ -31,6 +35,7 @@ class DeleteDoctorService {
       }
     });
 
+    // Retorna o médico excluído
     return deletedDoctor;
   }
 }

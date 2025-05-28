@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// é a interface que define os dados necessários para atualizar um paciente
 interface UpdatePatientRequest {
     id: string;
     name?: string;
@@ -9,6 +11,7 @@ interface UpdatePatientRequest {
     phone?: string;
 }
 
+// responsável por atualizar os dados de um paciente
 class UpdatePatientService {
     async execute({ id, name, cpf, date_birth, address, phone }: UpdatePatientRequest) {
         // Verificar se o ID foi fornecido
@@ -21,6 +24,7 @@ class UpdatePatientService {
             where: { id }
         });
 
+        // Se o paciente não existir, lança um erro
         if (!patientExists) {
             throw new Error("Paciente não encontrado");
         }
@@ -36,6 +40,7 @@ class UpdatePatientService {
                 }
             });
 
+            // Se o CPF já estiver em uso por outro paciente, lança um erro
             if (cpfInUse) {
                 throw new Error("Este CPF já está cadastrado para outro paciente");
             }
@@ -59,6 +64,7 @@ class UpdatePatientService {
             data: updateData
         });
 
+        // Retorna o paciente atualizado
         return updatedPatient;
     }
 }

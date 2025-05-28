@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// É responsável por criar um novo médico
 interface DoctorRequest {
   name: string;
   crm: string;
@@ -8,6 +10,8 @@ interface DoctorRequest {
   email: string;
 }
 
+
+// Serviço para criar um novo médico
 class CreateDoctorService {
   async execute({ name, crm, specialty, phone, email }: DoctorRequest) {
     // Validações básicas
@@ -15,18 +19,22 @@ class CreateDoctorService {
       throw new Error("Nome é obrigatório");
     }
     
+    // Verifica se o CRM é válido (exemplo: deve conter apenas números)
     if (!crm) {
       throw new Error("CRM é obrigatório");
     }
 
+    // Verifica se a especialidade é válida
     if (!specialty) {
       throw new Error("Especialidade é obrigatória");
     }
 
+    // Verifica se o telefone é válido
     if (!phone) {
       throw new Error("Telefone é obrigatório");
     }
 
+    // Verifica se o email é válido
     if (!email) {
       throw new Error("Email é obrigatório");
     }
@@ -54,6 +62,7 @@ class CreateDoctorService {
       }
     });
 
+    // Retorna o objeto do médico criado
     return doctor;
   }
 }

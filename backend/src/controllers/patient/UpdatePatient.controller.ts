@@ -13,6 +13,7 @@ class UpdatePatientController {
             // Converte a string de data para um objeto Date, se fornecida
             let parsedDateBirth = undefined;
             
+            // Verifica se a data de nascimento foi fornecida e é válida
             if (date_birth) {
                 parsedDateBirth = new Date(date_birth);
                 if (isNaN(parsedDateBirth.getTime())) {
@@ -36,9 +37,13 @@ class UpdatePatientController {
             // Retorna o paciente atualizado
             return res.json(updatedPatient);
         } catch (error) {
+
+            // Trata erros específicos e retorna mensagens apropriadas
             if (error instanceof Error) {
                 return res.status(400).json({ error: error.message });
             }
+
+            // Se ocorrer um erro inesperado, retorna um erro genérico
             return res.status(500).json({ error: 'Erro interno do servidor' });
         }
     }

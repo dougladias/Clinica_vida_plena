@@ -18,6 +18,7 @@ class CreateUserController {
         role,
        });
 
+       // Se o usuário for criado com sucesso, retorna o objeto do usuário
        return res.json(user);
     }
 }

@@ -1,5 +1,8 @@
 import prismaClient from "../../prisma";
 
+
+
+// Serviço responsável por remover um medicamento de uma receita
 class RemoveMedicationService {
   async execute(id: string) {
     // Verificar se o medicamento existe
@@ -9,6 +12,7 @@ class RemoveMedicationService {
       }
     });
 
+    // Se o medicamento não existir, lançar um erro
     if (!medicationExists) {
       throw new Error("Medicamento não encontrado");
     }
@@ -36,6 +40,7 @@ class RemoveMedicationService {
       }
     });
 
+    // Se a receita não existir, lançar um erro
     return {
       removedMedication: medication,
       prescription: updatedPrescription

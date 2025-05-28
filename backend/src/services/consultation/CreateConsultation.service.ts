@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// Interface para os dados da consulta
 interface ConsultationRequest {
   date: Date;
   time: string;
@@ -7,6 +9,7 @@ interface ConsultationRequest {
   patient_id: string;
 }
 
+// Serviço para criar uma nova consulta
 class CreateConsultationService {
   async execute({ date, time, doctor_id, patient_id }: ConsultationRequest) {
     // Validações básicas
@@ -14,14 +17,17 @@ class CreateConsultationService {
       throw new Error("Data da consulta é obrigatória");
     }
     
+    // Verifica se a data é válida
     if (!time) {
       throw new Error("Horário da consulta é obrigatório");
     }
 
+    // Verifica se o ID do médico e do paciente são fornecidos
     if (!doctor_id) {
       throw new Error("ID do médico é obrigatório");
     }
 
+    // Verifica se o ID do paciente é fornecido
     if (!patient_id) {
       throw new Error("ID do paciente é obrigatório");
     }
@@ -33,6 +39,7 @@ class CreateConsultationService {
       }
     });
 
+    // Se o médico não existir, lança um erro
     if (!doctorExists) {
       throw new Error("Médico não encontrado");
     }
@@ -44,6 +51,7 @@ class CreateConsultationService {
       }
     });
 
+    // Se o paciente não existir, lança um erro
     if (!patientExists) {
       throw new Error("Paciente não encontrado");
     }
@@ -59,6 +67,7 @@ class CreateConsultationService {
       }
     });
 
+    // Se já existir uma consulta, lança um erro
     if (consultationExists) {
       throw new Error("Já existe uma consulta agendada para este médico nesta data e horário");
     }
@@ -77,6 +86,7 @@ class CreateConsultationService {
       }
     });
 
+    // Retorna a consulta criada
     return consultation;
   }
 }

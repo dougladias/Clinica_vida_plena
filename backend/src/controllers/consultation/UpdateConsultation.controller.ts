@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { UpdateConsultationService } from '../../services/consultation/UpdateConsultation.service';
 
+
+// É responsável por atualizar uma consulta
 class UpdateConsultationController {
   async handle(request: Request, response: Response) {
     try {
@@ -26,8 +28,10 @@ class UpdateConsultationController {
         }
       }
 
+      // Verificar se o horário é válido
       const updateConsultationService = new UpdateConsultationService();
 
+      // Atualizar a consulta com os dados fornecidos
       const consultation = await updateConsultationService.execute({
         id,
         date: parsedDate,
@@ -36,11 +40,15 @@ class UpdateConsultationController {
         patient_id
       });
 
+      // Se a consulta for atualizada com sucesso, retorna o objeto da consulta
       return response.json(consultation);
     } catch (error) {
+
+      // Trata erros específicos e retorna mensagens apropriadas
       if (error instanceof Error) {
         return response.status(400).json({ error: error.message });
       }
+      // Se ocorrer um erro inesperado, retorna um erro genérico
       return response.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

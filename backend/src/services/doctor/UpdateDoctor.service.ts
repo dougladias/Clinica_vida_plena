@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// Interface para os dados da consulta
 interface UpdateDoctorRequest {
   id: string;
   name?: string;
@@ -9,6 +11,7 @@ interface UpdateDoctorRequest {
   email?: string;
 }
 
+// Serviço para atualizar um médico
 class UpdateDoctorService {
   async execute({ id, name, crm, specialty, phone, email }: UpdateDoctorRequest) {
     // Verificar se o médico existe
@@ -18,6 +21,7 @@ class UpdateDoctorService {
       }
     });
 
+    // Se o médico não existir, lançar um erro
     if (!doctorExists) {
       throw new Error("Médico não encontrado");
     }
@@ -33,6 +37,7 @@ class UpdateDoctorService {
         }
       });
 
+      // Se já existe outro médico com este CRM, lançar um erro
       if (crmAlreadyExists) {
         throw new Error("Já existe outro médico cadastrado com este CRM");
       }
@@ -43,6 +48,7 @@ class UpdateDoctorService {
       where: {
         id: id
       },
+      // Atualizar os campos fornecidos, mantendo os existentes se não forem alterados
       data: {
         name: name ?? doctorExists.name,
         crm: crm ?? doctorExists.crm,
@@ -53,6 +59,7 @@ class UpdateDoctorService {
       }
     });
 
+    // Retorna o médico atualizado
     return updatedDoctor;
   }
 }

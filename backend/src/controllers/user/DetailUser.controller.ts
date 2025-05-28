@@ -1,6 +1,8 @@
 import {Request, Response } from 'express';
 import { DetailUserService } from '../../services/user/DetailUser.service';
 
+
+// É responsável por obter os detalhes do usuário autenticado
 class DetailUserController {
     async handle(request: Request, response: Response) {
         
@@ -13,6 +15,7 @@ class DetailUserController {
         // Chama o serviço para obter os detalhes do usuário
         const user = await detailUserService.execute(user_id);
 
+        // Retorna os detalhes do usuário
         return response.json(user);
     }
 }

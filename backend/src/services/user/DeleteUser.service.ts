@@ -1,5 +1,7 @@
 import prismaClient from "../../prisma";
 
+
+// Serviço responsável por remover um usuario do banco de dados
 interface DeleteUserRequest {
     id: string;
 }

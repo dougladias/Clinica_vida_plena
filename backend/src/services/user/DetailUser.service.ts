@@ -1,8 +1,10 @@
 import prismaClient from "../../prisma";
 
+// responsável por buscar os detalhes de um usuário pelo ID
 class DetailUserService {
     async execute(user_id: string) {
 
+        // Verifica se o ID do usuário foi fornecido
         const userId = user_id;
       
         // Verifica se o ID do usuário foi fornecido

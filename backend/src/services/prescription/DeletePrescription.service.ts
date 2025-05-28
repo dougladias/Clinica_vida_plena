@@ -12,6 +12,7 @@ class DeletePrescriptionService {
       }
     });
 
+    // Se a receita não existir, lançar um erro
     if (!prescriptionExists) {
       throw new Error("Receita médica não encontrada");
     }

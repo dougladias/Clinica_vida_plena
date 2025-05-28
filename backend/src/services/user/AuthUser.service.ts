@@ -2,6 +2,8 @@ import prismaClient from "../../prisma";
 import { compare } from "bcryptjs"
 import { sign } from "jsonwebtoken";
 
+
+// AuthUserService é responsável por autenticar um usuário com email e senha
 interface AuthUserRequest {
     email: string;
     password: string;

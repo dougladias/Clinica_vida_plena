@@ -1,6 +1,7 @@
 import prismaClient from "../../prisma";
 import { hash } from "bcryptjs";
 
+// interface para os dados de atualização do usuário
 interface UpdateUserRequest {
     id: string;
     name?: string;
@@ -9,6 +10,7 @@ interface UpdateUserRequest {
     role?: string;
 }
 
+// Serviço responsável por atualizar os dados de um usuário
 class UpdateUserService {
     async execute({ id, name, email, password, role }: UpdateUserRequest) {
         // Verifica se o id foi fornecido
@@ -21,6 +23,7 @@ class UpdateUserService {
             where: { id }
         });
 
+        // Se o usuário não existir, lança um erro
         if (!userExists) {
             throw new Error("Usuário não encontrado");
         }
@@ -36,6 +39,7 @@ class UpdateUserService {
                 }
             });
 
+            // Se o email já estiver em uso por outro usuário, lança um erro
             if (emailInUse) {
                 throw new Error("Este email já está em uso");
             }
@@ -69,6 +73,7 @@ class UpdateUserService {
             }           
         });
 
+        // Retorna os dados do usuário atualizado
         return updatedUser;
     }
 }

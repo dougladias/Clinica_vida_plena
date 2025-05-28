@@ -1,9 +1,11 @@
 import prismaClient from "../../prisma";
 
+// interface responsável por deletar um paciente
 interface DeletePatientRequest {
     id: string;
 }
 
+// Serviço responsável por deletar um paciente
 class DeletePatientService {
     async execute({ id }: DeletePatientRequest) {
         // Validação básica
@@ -36,6 +38,7 @@ class DeletePatientService {
                 }
             });
 
+            // Retorna uma mensagem de sucesso e os dados do paciente excluído
             return { 
                 message: "Paciente excluído com sucesso", 
                 patient: deletedPatient 
@@ -46,6 +49,7 @@ class DeletePatientService {
                 throw new Error("Não é possível excluir este paciente pois ele possui consultas relacionadas");
             }
             
+            // Lança o erro original se não for relacionado a restrições
             throw error;
         }
     }

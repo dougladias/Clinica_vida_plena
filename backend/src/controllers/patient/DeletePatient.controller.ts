@@ -21,6 +21,7 @@ class DeletePatientController {
                 return res.status(400).json({ error: error.message });
             }
             
+            // Se ocorrer um erro inesperado, retorna um erro genérico
             return res.status(500).json({ 
                 error: 'Erro interno do servidor', 
                 details: error.toString() 

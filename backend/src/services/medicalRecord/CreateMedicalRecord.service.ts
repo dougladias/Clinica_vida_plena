@@ -1,11 +1,14 @@
 import prismaClient from "../../prisma";
 
+
+// É inteface para definir os parâmetros necessários para criar um prontuário médico
 interface MedicalRecordRequest {
   consultation_id: string;
   notes: string;
   diagnosis: string;
 }
 
+// Serviço para criar um prontuário médico
 class CreateMedicalRecordService {
   async execute({ consultation_id, notes, diagnosis }: MedicalRecordRequest) {
     // Validações básicas
@@ -13,10 +16,12 @@ class CreateMedicalRecordService {
       throw new Error("ID da consulta é obrigatório");
     }
     
+    // Verifica se as anotações são fornecidas
     if (!notes) {
       throw new Error("Anotações são obrigatórias");
     }
 
+    // Verifica se o diagnóstico é fornecido
     if (!diagnosis) {
       throw new Error("Diagnóstico é obrigatório");
     }
@@ -28,6 +33,7 @@ class CreateMedicalRecordService {
       }
     });
 
+    // Se a consulta não existir, lançar um erro
     if (!consultationExists) {
       throw new Error("Consulta não encontrada");
     }
@@ -39,6 +45,7 @@ class CreateMedicalRecordService {
       }
     });
 
+    // Se já existe um prontuário, lançar um erro
     if (existingMedicalRecord) {
       throw new Error("Já existe um prontuário registrado para esta consulta");
     }
@@ -50,6 +57,7 @@ class CreateMedicalRecordService {
         notes,
         diagnosis
       },
+      // Incluir os dados da consulta, médico e paciente relacionados
       include: {
         consultation: {
           include: {
@@ -60,6 +68,7 @@ class CreateMedicalRecordService {
       }
     });
 
+    // Retorna o prontuário criado
     return medicalRecord;
   }
 }

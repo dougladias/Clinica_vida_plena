@@ -1,5 +1,6 @@
 import prismaClient from "../../prisma";
 
+// É responsável por Atualizar consultas com base em critérios opcionais como médico, paciente e data
 interface UpdateConsultationRequest {
   id: string;
   date?: Date;
@@ -8,6 +9,7 @@ interface UpdateConsultationRequest {
   patient_id?: string;
 }
 
+// Serviço para atualizar uma consulta
 class UpdateConsultationService {
   async execute({ id, date, time, doctor_id, patient_id }: UpdateConsultationRequest) {
     // Verificar se a consulta existe
@@ -17,6 +19,7 @@ class UpdateConsultationService {
       }
     });
 
+    // Se a consulta não existir, lançar um erro
     if (!consultationExists) {
       throw new Error("Consulta não encontrada");
     }
@@ -29,6 +32,7 @@ class UpdateConsultationService {
         }
       });
 
+      // Se o médico não existir, lançar um erro
       if (!doctorExists) {
         throw new Error("Médico não encontrado");
       }
@@ -42,6 +46,7 @@ class UpdateConsultationService {
         }
       });
 
+      // Se o paciente não existir, lançar um erro
       if (!patientExists) {
         throw new Error("Paciente não encontrado");
       }
@@ -52,10 +57,12 @@ class UpdateConsultationService {
         (time && time !== consultationExists.time) || 
         (doctor_id && doctor_id !== consultationExists.doctor_id)) {
       
+      // Verificar se já existe uma consulta agendada para o mesmo médico na mesma data e horário
       const checkDoctor = doctor_id || consultationExists.doctor_id;
       const checkDate = date || consultationExists.date;
       const checkTime = time || consultationExists.time;
       
+      // Verificar se já existe uma consulta agendada para o mesmo médico na mesma data e horário
       const conflictingConsultation = await prismaClient.consultation.findFirst({
         where: {
           id: {
@@ -67,6 +74,7 @@ class UpdateConsultationService {
         }
       });
 
+      // Se já existir uma consulta, lançar um erro
       if (conflictingConsultation) {
         throw new Error("Já existe uma consulta agendada para este médico nesta data e horário");
       }
@@ -90,6 +98,7 @@ class UpdateConsultationService {
       }
     });
 
+    // Retorna a consulta atualizada
     return updatedConsultation;
   }
 }
