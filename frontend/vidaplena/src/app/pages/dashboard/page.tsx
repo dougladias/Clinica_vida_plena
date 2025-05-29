@@ -160,8 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   pacientes, 
   medicos, 
   receitas, 
-  selectedDate, 
-  handleAdd, 
+  selectedDate,    
   getMedicoById, 
   getPacienteById 
 }) => {
@@ -197,31 +196,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       animate="visible"
       exit="hidden"
       className="space-y-8"
-    >
-      {/* Header da página */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div>
-          <h2 className="text-4xl font-bold text-slate-800">Dashboard</h2>
-          <p className="text-slate-500 mt-1">Bem-vindo ao sistema de gestão da Clínica Vida Plena</p>
-          <p className="text-sm text-slate-400 mt-1">
-            Hoje, {new Date().toLocaleDateString('pt-BR', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </p>
-        </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => handleAdd('consulta')}
-          className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="font-medium">Nova Consulta</span>
-        </motion.button>
-      </motion.div>
+    >   
+      
 
       {/* Cards de estatísticas */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

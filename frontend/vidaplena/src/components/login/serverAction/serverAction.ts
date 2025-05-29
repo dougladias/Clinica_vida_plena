@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { api } from '@/services/api';
-
+import { cookies } from 'next/headers';
 
 // Função para lidar com o login do usuário
 export async function handleLogin(formdata: FormData) {
@@ -21,10 +21,26 @@ export async function handleLogin(formdata: FormData) {
       password        
     });
 
-    // Armazena o token de autenticação no localStorage
-    console.log(response.data);
+    // Se não houver token na resposta, retorna
+    if(!response.data.token) {      
+      return;
+    }
 
-    // Verifica se o token foi retornado
+    // Armazena o token no cookie Por 1D
+    const expressTime = 60 * 60 * 24 * 1000; 
+
+    // Obtém o armazenamento de cookies
+    const cookieStorage = await cookies();
+
+    // Armazena o token no cookie
+    cookieStorage.set("session", response.data.token, {
+      maxAge: expressTime, 
+      path: '/',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+    })
+
+  // Verifica se o token foi retornado
   } catch(err) {
     console.log(err);
     return;
