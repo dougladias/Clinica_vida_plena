@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { getCookieClient } from '@/lib/cookieClient';
 import Sidebar from "@/components/layout/sidebar/sidebar";
 import Header from "@/components/layout/header/header";
 
@@ -11,27 +12,37 @@ export default function ClientLayout({
   children: React.ReactNode 
 }) {
   const pathname = usePathname();
-  
-  // Lista de rotas onde não devemos mostrar header/sidebar
-  const noLayoutRoutes = ['/auth', '/404', '/500', '/maintenance'];
-  
-  // Verifica se a rota atual não deve ter o layout completo
-  const isNoLayoutPage = noLayoutRoutes.some(route => pathname.startsWith(route));
-  
-  // Resolver problema de hidratação usando um estado para controlar renderização no cliente
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  
+  // Lista de rotas públicas onde não devemos mostrar header/sidebar
+  const publicRoutes = ['/auth', '/404', '/500', '/maintenance'];
+  
+  // Verifica se a rota atual é pública
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // Verifica autenticação apenas em rotas protegidas
+    if (!isPublicRoute) {
+      const token = getCookieClient();
+      
+      if (!token) {
+        // Se não tem token em rota protegida, redireciona para login
+        router.replace('/auth/login');
+        return;
+      }
+    }
+  }, [pathname, router, isPublicRoute]);
 
-  // Durante SSR ou primeira renderização no cliente, retorna um layout mínimo
+  // Durante SSR ou primeira renderização no cliente
   if (!isClient) {
-    return <div className="min-h-screen">{null}</div>;
+    return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100"></div>;
   }
 
-  // Para rotas sem layout completo (auth, páginas de erro, etc)
-  if (isNoLayoutPage) {
+  // Para rotas públicas (auth, páginas de erro, etc) - sem header/sidebar
+  if (isPublicRoute) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         {children}
@@ -39,7 +50,17 @@ export default function ClientLayout({
     );
   }
 
-  // Para as rotas principais do aplicativo com layout completo
+  // Verifica token para rotas protegidas
+  const token = getCookieClient();
+  if (!token) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Layout completo para usuários autenticados
   return (
     <div className="flex flex-col min-h-screen">
       <Header />

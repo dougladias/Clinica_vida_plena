@@ -1,56 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCookieServer } from '@/lib/cookieServer';
-import { api } from '@/services/api';
 
-// Middleware para interceptar requisições e verificar o estado de autenticação do usuário
-export async function middleware(requerst: NextRequest) {
-    const { pathname } = requerst.nextUrl;
+export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
     
-    // Permite acesso a recursos do Next.js e à página inicial
-    if (pathname.startsWith('/_next') || pathname === "/") {
+    // Permite acesso a recursos do Next.js
+    if (pathname.startsWith('/_next') || 
+        pathname.startsWith('/api') || 
+        pathname.includes('.')) {
         return NextResponse.next();
     }
     
-    // Permite acesso às páginas de login e cadastro
-    if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/cadastro')) {
-        return NextResponse.next();
+    // Rotas públicas que não precisam de autenticação
+    const publicRoutes = ['/auth/login', '/auth/cadastro'];
+    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+    
+    // Pega o token do cookie
+    const token = request.cookies.get('session')?.value;
+    
+    // Se não tem token e está tentando acessar rota protegida
+    if (!token && !isPublicRoute && pathname !== '/') {
+        return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     
-    // Verifica se o usuário está autenticado
-    const token = await getCookieServer();
-    
-    // Para qualquer outra rota, verifica autenticação
-    if (!token) {
-        // Retorna erro 404 para usuários não autenticados
-        return NextResponse.json({ error: 'Página não encontrada' }, { status: 404 });
+    // Se tem token e está tentando acessar rota pública, redireciona para dashboard
+    if (token && isPublicRoute) {
+        return NextResponse.redirect(new URL('/pages/dashboard', request.url));
     }
     
-    // Valida o token
-    const isValid = await validateToken(token);
-    if (!isValid) {
-        // Retorna erro 404 se o token for inválido
-        return NextResponse.json({ error: 'Página não encontrada' }, { status: 404 });
+    // Se não tem token e está na raiz, redireciona para login
+    if (!token && pathname === '/') {
+        return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     
-    // Se o usuário estiver autenticado, permite o acesso à rota
     return NextResponse.next();
 }
 
-// Define quais rotas o middleware deve ser aplicado
-async function validateToken(token: string) {
-    if (!token) return false;
-    // Verifica se o token é válido fazendo uma requisição à API
-    try {
-        await api.get('/me', {
-            headers: {
-                Autorization: `Bearer ${token}`
-            }
-        })
-        // Se a requisição for bem-sucedida, o token é válido
-        return true;
-    } catch (err) {
-        console.error('Erro ao validar o token:', err);
-        return false;
-    }
+// Define quais rotas o middleware deve interceptar
+export const config = {
+    matcher: [
+        '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    ],
 }
-

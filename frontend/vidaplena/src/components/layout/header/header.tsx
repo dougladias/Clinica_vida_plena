@@ -6,8 +6,12 @@ import {
   Search, 
   Bell, 
   Settings, 
-  Stethoscope 
+  Stethoscope,
+  LogOut,
+  User
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { deleteCookie } from 'cookies-next';
 
 interface HeaderProps {
   searchTerm?: string;
@@ -20,6 +24,8 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   // Estado interno para quando as props não são fornecidas
   const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const router = useRouter();
   
   // Usar props externas se fornecidas, caso contrário usar estado interno
   const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
@@ -31,12 +37,22 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const handleLogout = () => {
+    // Remove o cookie
+    deleteCookie('session');
+    
+    // Redireciona para login
+    router.push('/auth/login');
+    
+    setShowUserMenu(false);
+  };
+
   return (
     <motion.header 
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6 }}
-      className="bg-white shadow-sm border-b border-slate-200"
+      className="bg-white shadow-sm border-b border-slate-200 relative z-50"
     >
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-4">
@@ -84,8 +100,53 @@ const Header: React.FC<HeaderProps> = ({
           >
             <Settings className="w-5 h-5" />
           </motion.button>
+
+          {/* Menu do usuário */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-2 p-2 text-slate-600 hover:text-slate-800 transition-colors"
+            >
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+            </motion.button>
+
+            {/* Dropdown do usuário */}
+            {showUserMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-2"
+              >
+                <div className="px-4 py-2 border-b border-slate-100">
+                  <p className="text-sm font-medium text-slate-800">Usuário</p>
+                  <p className="text-xs text-slate-500">admin@vidaplena.com</p>
+                </div>
+                
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sair</span>
+                </button>
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Clique fora para fechar o menu */}
+      {showUserMenu && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowUserMenu(false)}
+        />
+      )}
     </motion.header>
   );
 };
