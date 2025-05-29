@@ -10,8 +10,7 @@ import {
   LogOut,
   User
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { deleteCookie } from 'cookies-next';
+import { logoutClient } from '@/lib/cookieClient';
 
 interface HeaderProps {
   searchTerm?: string;
@@ -25,7 +24,6 @@ const Header: React.FC<HeaderProps> = ({
   // Estado interno para quando as props não são fornecidas
   const [internalSearchTerm, setInternalSearchTerm] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const router = useRouter();
   
   // Usar props externas se fornecidas, caso contrário usar estado interno
   const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
@@ -38,12 +36,8 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   const handleLogout = () => {
-    // Remove o cookie
-    deleteCookie('session');
-    
-    // Redireciona para login
-    router.push('/auth/login');
-    
+    // Usa a função de logout que limpa cookie e redireciona
+    logoutClient();
     setShowUserMenu(false);
   };
 

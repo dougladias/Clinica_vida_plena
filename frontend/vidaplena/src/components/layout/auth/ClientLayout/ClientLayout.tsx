@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from "next/navigation";
-import { getCookieClient } from '@/lib/cookieClient';
+import { validateTokenClient } from '@/lib/cookieClient';
 import Sidebar from "@/components/layout/sidebar/sidebar";
 import Header from "@/components/layout/header/header";
 
@@ -14,6 +14,7 @@ export default function ClientLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
   
   // Lista de rotas públicas onde não devemos mostrar header/sidebar
   const publicRoutes = ['/auth', '/404', '/500', '/maintenance'];
@@ -26,13 +27,23 @@ export default function ClientLayout({
     
     // Verifica autenticação apenas em rotas protegidas
     if (!isPublicRoute) {
-      const token = getCookieClient();
+      const validateAuth = async () => {
+        setIsValidating(true);
+        
+        const isValid = await validateTokenClient();
+        
+        if (!isValid) {
+          // Token inválido ou não existe, redireciona para login
+          router.replace('/auth/login');
+          return;
+        }
+        
+        setIsValidating(false);
+      };
       
-      if (!token) {
-        // Se não tem token em rota protegida, redireciona para login
-        router.replace('/auth/login');
-        return;
-      }
+      validateAuth();
+    } else {
+      setIsValidating(false);
     }
   }, [pathname, router, isPublicRoute]);
 
@@ -50,12 +61,14 @@ export default function ClientLayout({
     );
   }
 
-  // Verifica token para rotas protegidas
-  const token = getCookieClient();
-  if (!token) {
+  // Mostra loading enquanto valida token
+  if (isValidating) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-slate-600">Verificando autenticação...</p>
+        </div>
       </div>
     );
   }
