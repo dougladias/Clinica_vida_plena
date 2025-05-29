@@ -3,9 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Search, 
   Bell, 
-  Settings, 
   Stethoscope,
   LogOut,
   User
@@ -17,24 +15,11 @@ interface HeaderProps {
   setSearchTerm?: (term: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  searchTerm: externalSearchTerm, 
-  setSearchTerm: externalSetSearchTerm 
+const Header: React.FC<HeaderProps> = ({   
 }) => {
-  // Estado interno para quando as props não são fornecidas
-  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  // Estado interno para quando as props não são fornecidas  
   const [showUserMenu, setShowUserMenu] = useState(false);
-  
-  // Usar props externas se fornecidas, caso contrário usar estado interno
-  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
-  const handleSearchChange = (term: string) => {
-    if (externalSetSearchTerm) {
-      externalSetSearchTerm(term);
-    } else {
-      setInternalSearchTerm(term);
-    }
-  };
-
+    
   const handleLogout = () => {
     // Usa a função de logout que limpa cookie e redireciona
     logoutClient();
@@ -46,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6 }}
-      className="bg-white shadow-sm border-b border-slate-200 relative z-50"
+      className="bg-white shadow-sm border-b border-slate-200 z-50 fixed top-0 left-0 right-0"
     >
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-4">
@@ -64,20 +49,6 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         
         <div className="flex items-center space-x-4">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="relative md:block hidden"
-          >
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
-            />
-          </motion.div>
-          
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -87,14 +58,6 @@ const Header: React.FC<HeaderProps> = ({
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
           </motion.button>
           
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <Settings className="w-5 h-5" />
-          </motion.button>
-
           {/* Menu do usuário */}
           <div className="relative">
             <motion.button

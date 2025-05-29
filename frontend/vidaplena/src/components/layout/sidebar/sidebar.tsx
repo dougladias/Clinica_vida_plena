@@ -67,39 +67,41 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab: externalActiveTab, setActi
         </button>
       </div>
 
-      {/* Sidebar para desktop */}
+      {/* Sidebar para desktop - posição fixa */}
       <motion.aside
         initial={{ x: -300 }}
         animate={{ x: 0 }}
         transition={{ duration: 0.6 }}
-        className="hidden lg:block w-64 bg-white shadow-lg border-r border-slate-200 min-h-screen"
+        className="hidden lg:block fixed left-0 top-0 w-64 bg-white shadow-lg border-r border-slate-200 h-full z-40"
       >
-        <nav className="p-4 space-y-2">
-          {navigationItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.path || activeTab === item.id;
-            
-            return (
-              <Link href={item.path} key={item.id}>
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ x: 4 }}
-                  onClick={() => handleTabChange(item.id)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </motion.div>
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="pt-20"> {/* Espaçamento para o header */}
+          <nav className="p-4 space-y-2">
+            {navigationItems.map((item, index) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.path || activeTab === item.id;
+              
+              return (
+                <Link href={item.path} key={item.id}>
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ x: 4 }}
+                    onClick={() => handleTabChange(item.id)}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </motion.aside>
 
       {/* Sidebar para mobile */}

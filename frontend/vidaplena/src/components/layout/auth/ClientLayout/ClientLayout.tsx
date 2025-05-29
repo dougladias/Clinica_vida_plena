@@ -77,10 +77,10 @@ export default function ClientLayout({
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <Header />
-      <div className="flex flex-1">
+      <div className="flex flex-1 mt-[72px]"> {/* Adicionando margin-top para compensar o header */}
         <Sidebar />
         <main className="flex-1 lg:ml-64 p-4 md:p-6 flex justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-          <div className="w-full max-w-[1280px]">
+          <div className="w-full max-w-[1800px]">
             {children}
           </div>
         </main>
