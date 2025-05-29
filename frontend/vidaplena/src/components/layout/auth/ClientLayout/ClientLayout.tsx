@@ -75,12 +75,14 @@ export default function ClientLayout({
 
   // Layout completo para usuários autenticados
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 lg:ml-64 p-4 md:p-6">
-          {children}
+        <main className="flex-1 lg:ml-64 p-4 md:p-6 flex justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+          <div className="w-full max-w-[1280px]">
+            {children}
+          </div>
         </main>
       </div>
     </div>

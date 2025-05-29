@@ -11,11 +11,11 @@ import { isAuthenticated } from '../middlewares/isAuthenticated';
 const router = Router();
 
 // Rotas Públicas
-router.use('/session', authRoutes); 
-router.use('/user', userRoutes);    
+router.use('/session', authRoutes);  
+router.use('/user', userRoutes);     
 
 // Rotas Protegidas (com autenticação)
-router.use('/me', isAuthenticated, authRoutes);          
+router.use('/me', isAuthenticated, authRoutes);  
 router.use('/user-admin', isAuthenticated, userRoutes);  
 router.use('/patient', isAuthenticated, patientRoutes);
 router.use('/doctor', isAuthenticated, doctorRoutes);

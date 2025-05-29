@@ -6,14 +6,19 @@ import { router } from "./routes/routes";
 // Importando o Express e o roteador
 const app = Express();
 
-// Configurando o Express para usar JSON
+// CORS 
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// JSON 
 app.use(Express.json());
 
-// Configurando o roteador
+// Rotas 
 app.use(router);
-
-// Configurando o CORS para permitir requisições de qualquer origem
-app.use(cors());
 
 // Middleware para tratamento de erros
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -26,13 +31,12 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
     // Se o erro não for uma instância de Error, retornamos um erro genérico
     return res.status(500).json({
-        staus: "error",
+        status: "error",
         message: "Internal Server Error."
     })
 })
 
 // Rota do Servidor
 app.listen(4000, () => {
-    console.log("Servidor Rodando na porta 4000");
+    console.log("🚀 Servidor Rodando na porta 4000");
 });
-

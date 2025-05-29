@@ -4,10 +4,10 @@ import { DetailUserController } from '../../controllers/user/DetailUser.controll
 
 const authRoutes = Router();
 
-// Rota de login
+// Rota para login 
 authRoutes.post('/', new AuthUserController().handle);
 
-// Rota para obter detalhes do usuário logado
+// Rota para obter dados do usuário logado 
 authRoutes.get('/', new DetailUserController().handle);
 
 export { authRoutes };
