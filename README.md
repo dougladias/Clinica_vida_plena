@@ -59,8 +59,6 @@ DATABASE_URL="postgresql://postgres:1425@localhost:5432/VidaPlena?schema=public"
 # Secret JWT
 JWT_SECRET=875ddfd6c2668d2a4f85ea19ab3c1b82
 
-
-
 4. **Execute as migrações do banco**
 
 - ( Abra o Terminal do vs code na Pasta Backend )
