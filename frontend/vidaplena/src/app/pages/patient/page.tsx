@@ -13,7 +13,7 @@ import {
   handleCreatePatient,
   handleUpdatePatient,
   handleDeletePatient 
-} from '@/components/patient/serverAction/patientActions';
+} from '@/hooks/patient/usePatient';
 
 interface Patient {
   id: string;

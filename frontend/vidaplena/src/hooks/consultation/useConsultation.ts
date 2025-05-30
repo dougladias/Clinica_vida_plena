@@ -5,12 +5,42 @@ import { revalidatePath } from 'next/cache';
 import { api } from '@/services/api';
 import { cookies } from 'next/headers';
 
+// Interface para representar os dados de uma consulta
+export interface ConsultationDoctor {
+  id: string;
+  name: string;
+  specialty?: string;
+  crm?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface ConsultationPatient {
+  id: string;
+  name: string;
+  cpf?: string;
+  birthdate?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface Consultation {
+  id: string;
+  date: string;
+  time: string;
+  doctor_id: string;
+  patient_id: string;
+  status: string;
+  doctor?: ConsultationDoctor;
+  patient?: ConsultationPatient;
+}
+
 // Função para obter o token de autenticação
 async function getAuthToken(): Promise<string> {
   const cookieStore = await cookies();
   const token = cookieStore.get('session')?.value;
   
-  // Verifica se o token existe
   if (!token) {
     redirect('/auth/login');
   }
@@ -18,12 +48,11 @@ async function getAuthToken(): Promise<string> {
   return token;
 }
 
-// Buscar todas as consultas
+// CORREÇÃO: Buscar todas as consultas com normalização de datas
 export async function getConsultations(filters?: { doctor_id?: string; patient_id?: string; date?: string }) {
   try {
     const token = await getAuthToken();
     
-    // Construir parâmetros de consulta
     let url = '/consultation';
     
     if (filters) {
@@ -31,10 +60,9 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
       if (filters.doctor_id) params.append('doctor_id', filters.doctor_id);
       if (filters.patient_id) params.append('patient_id', filters.patient_id);
       
-      // Formatar a data corretamente se ela existir
+      // CORREÇÃO: Manter a data no formato original
       if (filters.date) {
-        // Não precisamos mudar o formato, apenas garantir que é uma data válida
-        const dateObj = new Date(filters.date);
+        const dateObj = new Date(filters.date + 'T00:00:00');
         if (!isNaN(dateObj.getTime())) {
           params.append('date', filters.date);
         }
@@ -48,21 +76,32 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
     
     console.log("Fazendo requisição para:", url);
     
-    // Fazer a requisição à API
     const response = await api.get(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
       }      
     });
 
-    // Verificação adicional para depuração
-    if (!response.data || response.data.length === 0) {
+    // Define interface for raw API response
+    interface ApiConsultation extends Omit<Consultation, 'date'> {
+      date: string; 
+    }
+    
+    // CORREÇÃO: Normalizar datas na resposta para evitar problemas de timezone
+    const consultations = response.data.map((consultation: ApiConsultation) => ({
+      ...consultation,
+      // Extrair apenas a parte da data (YYYY-MM-DD) ignorando timezone
+      date: consultation.date.split('T')[0]
+    }));
+
+    if (!consultations || consultations.length === 0) {
       console.log('A API retornou uma lista vazia de consultas');
     } else {
-      console.log(`A API retornou ${response.data.length} consultas`);
+      console.log(`A API retornou ${consultations.length} consultas`);
+      console.log('Primeira consulta (data normalizada):', consultations[0]);
     }
 
-    return response.data || [];
+    return consultations as Consultation[];
   } catch (error) {
     console.error('Erro ao buscar consultas:', error);
     return [];
@@ -77,16 +116,13 @@ export async function handleCreateConsultation(formData: FormData) {
   const patient_id = formData.get("patient_id") as string;
   const status = formData.get("status") as string || "Agendada";
 
-  // Verifica se todos os campos obrigatórios estão preenchidos
   if (!date || !time || !doctor_id || !patient_id) {
     return { error: "Todos os campos são obrigatórios" };
   }
 
-  // Verifica se a data e hora estão no formato correto
   try {
     const token = await getAuthToken();
     
-    // Verifica se a data está no formato YYYY-MM-DD
     await api.post('/consultation', {
       date,
       time,
@@ -99,7 +135,6 @@ export async function handleCreateConsultation(formData: FormData) {
       },
     });
 
-    // Revalidar a rota para atualizar a lista de consultas
     revalidatePath('/pages/consultation');
     return { success: true };
   } catch(err) {
@@ -111,7 +146,6 @@ export async function handleCreateConsultation(formData: FormData) {
         };
       };
     }
-    // Verifica se o erro é do tipo ApiError e extrai a mensagem de erro
     const apiError = err as ApiError;
     if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
       return { error: apiError.response.data.error };
@@ -129,16 +163,13 @@ export async function handleUpdateConsultation(formData: FormData) {
   const patient_id = formData.get("patient_id") as string;
   const status = formData.get("status") as string;
 
-  // Verifica se o ID da consulta está presente
   if (!id) {
     return { error: "ID é obrigatório" };
   }
 
-  // Verifica se pelo menos um campo foi preenchido para atualização
   try {
     const token = await getAuthToken();
     
-    // Verifica se pelo menos um campo foi preenchido
     const updateData: { 
       date?: string; 
       time?: string; 
@@ -147,21 +178,18 @@ export async function handleUpdateConsultation(formData: FormData) {
       status?: string;
     } = {};
     
-    // Preenche os campos que foram informados
     if (date) updateData.date = date;
     if (time) updateData.time = time;
     if (doctor_id) updateData.doctor_id = doctor_id;
     if (patient_id) updateData.patient_id = patient_id;
     if (status) updateData.status = status;
     
-    // Se nenhum campo foi preenchido, retorna erro
     await api.put(`/consultation/${id}`, updateData, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
 
-    // Revalidar a rota para atualizar a lista de consultas
     revalidatePath('/pages/consultation');
     return { success: true };
   } catch(err) {
@@ -173,7 +201,6 @@ export async function handleUpdateConsultation(formData: FormData) {
         };
       };
     }
-    // Verifica se o erro é do tipo ApiError e extrai a mensagem de erro
     const apiError = err as ApiError;
     if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
       return { error: apiError.response.data.error };
@@ -188,18 +215,15 @@ export async function handleDeleteConsultation(id: string) {
     return { error: "ID é obrigatório" };
   }
 
-  // Verifica se o ID da consulta está presente
   try {
     const token = await getAuthToken();
     
-    // Fazer a requisição para deletar a consulta
     await api.delete(`/consultation/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
 
-    // Revalidar a rota para atualizar a lista de consultas
     revalidatePath('/pages/consultation');
     return { success: true };
   } catch(err) {
@@ -211,7 +235,6 @@ export async function handleDeleteConsultation(id: string) {
         };
       };
     }
-    // Verifica se o erro é do tipo ApiError e extrai a mensagem de erro
     const apiError = err as ApiError;
     if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
       return { error: apiError.response.data.error };
@@ -225,14 +248,12 @@ export async function getDoctors() {
   try {
     const token = await getAuthToken();
     
-    // Fazer a requisição à API para obter a lista de médicos
     const response = await api.get('/doctor', {
       headers: {
         'Authorization': `Bearer ${token}`,
       }      
     });
 
-    // Logar a resposta da API
     return response.data;
   } catch (error) {
     console.log('Erro ao buscar médicos:', error);
@@ -245,14 +266,12 @@ export async function getPatients() {
   try {
     const token = await getAuthToken();
     
-    // Fazer a requisição à API para obter a lista de pacientes
     const response = await api.get('/patient', {
       headers: {
         'Authorization': `Bearer ${token}`,
       }      
     });
 
-    // Logar a resposta da API
     return response.data;
   } catch (error) {
     console.log('Erro ao buscar pacientes:', error);

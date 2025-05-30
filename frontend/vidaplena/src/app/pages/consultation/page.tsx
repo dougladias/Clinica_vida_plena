@@ -25,23 +25,22 @@ import {
   handleUpdateConsultation,
   handleDeleteConsultation,
   getDoctors,
-  getPatients
-} from '@/components/consultation/serverAction/consultationAction';
+  getPatients,
+  Consultation as ApiConsultation,
+  ConsultationDoctor,
+  ConsultationPatient
+} from '@/hooks/consultation/useConsultation';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-// Interfaces
-interface Doctor {
-  id: string;
-  name: string;
+// Reutilize os tipos da API para evitar conflitos
+type Doctor = ConsultationDoctor & {
   specialty: string;
   crm: string;
   email: string;
   phone: string;
 }
 
-interface Patient {
-  id: string;
-  name: string;
+type Patient = ConsultationPatient & {
   cpf: string;
   birthdate: string;
   address: string;
@@ -49,16 +48,8 @@ interface Patient {
   email: string;
 }
 
-interface Consultation {
-  id: string;
-  date: string;
-  time: string;
-  doctor_id: string;
-  patient_id: string;
-  status: string;
-  doctor?: Doctor;
-  patient?: Patient;
-}
+// Use o tipo da API como base e adicione o que precisar
+type Consultation = ApiConsultation;
 
 interface ConsultationStats {
   today: number;
@@ -68,7 +59,6 @@ interface ConsultationStats {
 }
 
 export default function ConsultationPage() {
-  // Estados para gerenciar os dados
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -92,19 +82,25 @@ export default function ConsultationPage() {
   const searchParams = useSearchParams();
   const doctorIdFilter = searchParams.get('doctor_id');
 
-  // Usando useCallback para resolver o problema de dependência
+  // CORREÇÃO: loadData com tratamento robusto de datas
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Carregar dados com filtro por data e médico se existir
+      // CORREÇÃO: Garantir que selectedDate está no formato YYYY-MM-DD
+      const normalizedSelectedDate = selectedDate.split('T')[0];
+      
       const filters: {
         date?: string;
         doctor_id?: string;
-      } = { date: selectedDate };
+      } = { date: normalizedSelectedDate };
       
       if (doctorIdFilter) {
         filters.doctor_id = doctorIdFilter;
       }
+      
+      console.log('=== LOAD DATA DEBUG ===');
+      console.log('Data selecionada normalizada:', normalizedSelectedDate);
+      console.log('Filtros aplicados:', filters);
       
       const [consultationsData, doctorsData, patientsData] = await Promise.all([
         getConsultations(filters),
@@ -112,15 +108,35 @@ export default function ConsultationPage() {
         getPatients()
       ]);
 
+      console.log('Dados recebidos:', {
+        consultations: consultationsData.length,
+        doctors: doctorsData.length,
+        patients: patientsData.length
+      });
+
+      // Log das consultas para debug
+      if (consultationsData.length > 0) {
+        console.log('Primeiras 3 consultas:', consultationsData.slice(0, 3).map(c => ({
+          id: c.id,
+          date: c.date,
+          time: c.time
+        })));
+      }
+
       setConsultations(consultationsData);
       setDoctors(doctorsData);
       setPatients(patientsData);
 
-      // Calcular estatísticas localmente
+      // CORREÇÃO: Calcular estatísticas com comparação de datas normalizada
       const today = new Date().toISOString().split('T')[0];
-      const consultationsToday = consultationsData.filter(
-        (c: Consultation) => c.date === today
-      );
+      console.log('Data de hoje para comparação:', today);
+      
+      const consultationsToday = consultationsData.filter((c: Consultation) => {
+        const consultationDate = String(c.date).split('T')[0];
+        const isToday = consultationDate === today;
+        console.log(`Consulta ${c.id}: ${consultationDate} === ${today} = ${isToday}`);
+        return isToday;
+      });
       
       const scheduledConsultations = consultationsData.filter(
         (c: Consultation) => c.status === 'Agendada'
@@ -134,12 +150,15 @@ export default function ConsultationPage() {
         (c: Consultation) => c.status === 'Concluída'
       );
       
-      setStats({
+      const newStats = {
         today: consultationsToday.length,
         scheduled: scheduledConsultations.length,
         inProgress: inProgressConsultations.length,
         completed: completedConsultations.length
-      });
+      };
+      
+      console.log('Estatísticas calculadas:', newStats);
+      setStats(newStats);
 
       setError(null);
     } catch (error) {
@@ -150,10 +169,18 @@ export default function ConsultationPage() {
     }
   }, [selectedDate, doctorIdFilter]);
 
-  // Carregar dados de APIs - corrigido com loadData como dependência
+  // CORREÇÃO: Garantir que selectedDate seja sempre normalizada
+  useEffect(() => {
+    const normalizedDate = selectedDate.split('T')[0];
+    if (normalizedDate !== selectedDate) {
+      console.log('Normalizando selectedDate:', selectedDate, '->', normalizedDate);
+      setSelectedDate(normalizedDate);
+    }
+  }, [selectedDate]);
+
   useEffect(() => {
     loadData();
-  }, [loadData]); // loadData já inclui selectedDate e doctorIdFilter como dependências
+  }, [loadData]);
 
   // Handlers
   const handleRefresh = async () => {
@@ -211,7 +238,6 @@ export default function ConsultationPage() {
     return patients.find(patient => patient.id === id);
   };
 
-  // Renderizar componente
   return (
     <div className="space-y-6">
       {/* Error Banner */}
@@ -286,7 +312,7 @@ interface ConsultationsComponentProps {
   doctorIdFilter: string | null;
 }
 
-// Componente ConsultationsComponent
+// CORREÇÃO: Componente ConsultationsComponent
 const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({ 
   consultations, 
   doctors,  
@@ -301,24 +327,30 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
   getPatientById,
   doctorIdFilter
 }) => {
-  // ADICIONE ESTA DEPURAÇÃO
+  // CORREÇÃO: Debug das consultas do dia
   useEffect(() => {
-    console.log("ConsultationsComponent - Consultas recebidas:", consultations);
-    console.log("ConsultationsComponent - Data selecionada:", selectedDate);
-    if (consultations?.length > 0) {
-      console.log("Exemplo de data da consulta:", consultations[0].date);
-      console.log("São iguais?", consultations[0].date === selectedDate);
+    console.log("=== CONSULTATIONS COMPONENT DEBUG ===");
+    console.log("Consultas recebidas:", consultations.length);
+    console.log("Data selecionada:", selectedDate);
+    console.log("Timezone do navegador:", Intl.DateTimeFormat().resolvedOptions().timeZone);
+    
+    if (consultations.length > 0) {
+      console.log("Datas das consultas:", consultations.map(c => c.date));
     }
   }, [consultations, selectedDate]);
 
-  // Modificar a comparação para ser mais robusta
+  // CORREÇÃO: Filtro robusto para consultas do dia
   const consultationsOfDay = consultations.filter(c => {
-    // Extrai apenas a parte da data (YYYY-MM-DD) de ambas as strings e compara
+    // Normalizar ambas as datas para comparação
     const consultationDateStr = String(c.date).split('T')[0];
-    return consultationDateStr === selectedDate;
+    const selectedDateStr = selectedDate.split('T')[0];
+    
+    const match = consultationDateStr === selectedDateStr;
+    console.log(`Filtro: "${consultationDateStr}" === "${selectedDateStr}" = ${match}`);
+    return match;
   });
 
-  console.log("ConsultationsComponent - Consultas filtradas para o dia:", consultationsOfDay);
+  console.log(`Consultas filtradas para ${selectedDate}:`, consultationsOfDay.length);
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -337,9 +369,6 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
     visible: { opacity: 1, x: 0 }
   };
 
-  // Removidos: scheduledConsultations, inProgressConsultations, completedConsultations
-  // Esses valores já estão sendo usados no cálculo das estatísticas
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Agendada':
@@ -355,16 +384,23 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
     }
   };
 
+  // CORREÇÃO: Navegação de datas sem problemas de timezone
   const nextDay = () => {
-    const date = new Date(selectedDate);
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() + 1);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    const newDateStr = date.toISOString().split('T')[0];
+    console.log('Próximo dia:', selectedDate, '->', newDateStr);
+    setSelectedDate(newDateStr);
   };
 
   const previousDay = () => {
-    const date = new Date(selectedDate);
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() - 1);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    const newDateStr = date.toISOString().split('T')[0];
+    console.log('Dia anterior:', selectedDate, '->', newDateStr);
+    setSelectedDate(newDateStr);
   };
 
   const router = useRouter();
@@ -425,8 +461,11 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
             
             <input
               type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              value={selectedDate.split('T')[0]}
+              onChange={(e) => {
+                console.log('Data selecionada pelo input:', e.target.value);
+                setSelectedDate(e.target.value);
+              }}
               className="px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none"
             />
             
@@ -520,17 +559,23 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
         </div>
       </motion.div>
 
-      {/* Agenda do dia */}
+      {/* CORREÇÃO: Agenda do dia com exibição correta da data */}
       <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-semibold text-slate-800">
-              Agenda do Dia - {new Date(selectedDate).toLocaleDateString('pt-BR', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
+              Agenda do Dia - {(() => {
+                // CORREÇÃO: Criar data sem conversão de timezone
+                const [year, month, day] = selectedDate.split('-').map(Number);
+                const displayDate = new Date(year, month - 1, day);
+                
+                return displayDate.toLocaleDateString('pt-BR', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                });
+              })()}
             </h3>
             <p className="text-sm text-slate-500">
               {loading ? (
@@ -649,23 +694,30 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
         )}
       </motion.div>
 
-      {/* Vista semanal */}
+      {/* CORREÇÃO: Vista semanal */}
       <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-slate-800 mb-4">Visão Semanal</h3>
         
         <div className="grid grid-cols-7 gap-4">
           {Array.from({ length: 7 }, (_, i) => {
-            const date = new Date(selectedDate);
-            const adjust = date.getDay() === 0 ? 6 : date.getDay() - 1;
-            date.setDate(date.getDate() - adjust + i);
-            const dateStr = date.toISOString().split('T')[0];
+            // CORREÇÃO: Calcular datas da semana sem problemas de timezone
+            const [year, month, day] = selectedDate.split('-').map(Number);
+            const baseDate = new Date(year, month - 1, day);
+            
+            const adjust = baseDate.getDay() === 0 ? 6 : baseDate.getDay() - 1;
+            const currentDate = new Date(baseDate);
+            currentDate.setDate(currentDate.getDate() - adjust + i);
+            
+            const dateStr = currentDate.toISOString().split('T')[0];
+            
             const consultationsDay = consultations.filter(c => {
-              // Normaliza as datas para o formato YYYY-MM-DD antes de comparar
               const consultationDate = String(c.date).split('T')[0];
               return consultationDate === dateStr;
             });
-            const isToday = dateStr === new Date().toISOString().split('T')[0];
-            const isSelected = dateStr === selectedDate;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const isToday = dateStr === today;
+            const isSelected = dateStr === selectedDate.split('T')[0];
             
             return (
               <motion.div
@@ -684,12 +736,12 @@ const ConsultationsComponent: React.FC<ConsultationsComponentProps> = ({
                   <p className={`text-xs font-medium mb-1 ${
                     isSelected ? 'text-purple-100' : 'text-slate-500'
                   }`}>
-                    {date.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                    {currentDate.toLocaleDateString('pt-BR', { weekday: 'short' })}
                   </p>
                   <p className={`text-lg font-bold mb-2 ${
                     isSelected ? 'text-white' : isToday ? 'text-blue-800' : 'text-slate-800'
                   }`}>
-                    {date.getDate()}
+                    {currentDate.getDate()}
                   </p>
                   <div className={`text-xs ${
                     isSelected ? 'text-purple-100' : 'text-slate-500'
@@ -810,7 +862,7 @@ function ConsultationModal({
     if (isOpen) {
       if (mode === 'edit' && consultation) {
         setFormData({
-          date: consultation.date,
+          date: consultation.date.split('T')[0], // CORREÇÃO: Garantir formato YYYY-MM-DD
           time: consultation.time,
           doctor_id: consultation.doctor_id,
           patient_id: consultation.patient_id,

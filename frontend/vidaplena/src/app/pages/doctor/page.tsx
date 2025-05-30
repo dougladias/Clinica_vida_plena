@@ -24,7 +24,7 @@ import {
   handleCreateDoctor,
   handleUpdateDoctor,
   handleDeleteDoctor 
-} from '@/components/doctor/serverAction/doctorActions';
+} from '@/hooks/doctor/useDoctor';
 
 // Interfaces Medico
 interface Medico {
