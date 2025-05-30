@@ -16,7 +16,7 @@ import {
   Loader2,
   RefreshCw,
   CheckCircle,
-  Save
+  Save  
 } from 'lucide-react';
 import { 
   getDoctors, 
@@ -25,24 +25,28 @@ import {
   handleUpdateDoctor,
   handleDeleteDoctor 
 } from '@/hooks/doctor/useDoctor';
+import { 
+  Medico, 
+  MedicosStats, 
+  CreateDoctorData, 
+  UpdateDoctorData 
+} from '@/types/doctor.type'; 
 
-// Interfaces Medico
-interface Medico {
-  id: string;
-  name: string;
+// Importando os componentes UI
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+// Interface para o formulário - podemos manter essa definição aqui já que é específica da UI
+interface FormData {
+  nome: string;
   crm: string;
-  specialty: string;
-  phone: string;
-  email: string;  
-  created_at?: string;
-  updated_at?: string;
-}
-
-// Interface para estatísticas dos médicos
-interface MedicosStats {
-  totalMedicos: number;
-  especialidades: number;
-  consultasHoje: number; 
+  especialidade: string;
+  telefone: string;
+  email: string;
 }
 
 // Página principal do componente de médicos
@@ -53,7 +57,6 @@ export default function DoctorPage() {
     totalMedicos: 0,
     especialidades: 0,
     consultasHoje: 0
-    // Removido disponiveis
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,11 +66,95 @@ export default function DoctorPage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedMedico, setSelectedMedico] = useState<Medico | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Estados para o formulário
+  const [formData, setFormData] = useState<FormData>({
+    nome: '',
+    crm: '',
+    especialidade: '',
+    telefone: '',
+    email: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // Variantes de animação
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        duration: 0.6
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6 }
+    }
+  };
+
+  const floatingVariants = {
+    animate: {
+      y: ['-5%', '5%', '-5%'],
+      rotate: [0, 2, -2, 0],
+      transition: {
+        duration: 6,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
+  const pulseVariants = {
+    animate: {
+      scale: [1, 1.05, 1],
+      opacity: [0.7, 1, 0.7],
+      transition: {
+        duration: 3,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
+  // Garantir que o componente está montado (para evitar problemas de hidratação)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Carregar dados iniciais
   useEffect(() => {
     loadData();
   }, []);
+
+  // Efeito para preencher o formulário quando estiver editando
+  useEffect(() => {
+    if (selectedMedico && modalMode === 'edit') {
+      setFormData({
+        nome: selectedMedico.name,
+        crm: selectedMedico.crm,
+        especialidade: selectedMedico.specialty,
+        telefone: selectedMedico.phone,
+        email: selectedMedico.email
+      });
+    } else {
+      // Resetar formulário quando for criação
+      setFormData({
+        nome: '',
+        crm: '',
+        especialidade: '',
+        telefone: '',
+        email: ''
+      });
+    }
+  }, [selectedMedico, modalMode]);
 
   const loadData = async () => {
     setLoading(true);
@@ -87,8 +174,7 @@ export default function DoctorPage() {
         setStats({
           totalMedicos: medicosData.length,
           especialidades: especialidades.length,
-          consultasHoje: 0  // Podemos não ter essa informação disponível
-          // Removido disponiveis
+          consultasHoje: 0
         });
       }
 
@@ -98,6 +184,64 @@ export default function DoctorPage() {
       setError('Erro ao carregar dados dos médicos. Por favor, tente novamente.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handler para atualização dos campos do formulário
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handler para submissão do formulário
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      if (modalMode === 'create') {
+        const createData: CreateDoctorData = {
+          nome: formData.nome,
+          crm: formData.crm,
+          especialidade: formData.especialidade,
+          telefone: formData.telefone,
+          email: formData.email
+        };
+        
+        const result = await handleCreateDoctor(createData);
+        
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+      } else if (modalMode === 'edit' && selectedMedico) {
+        const updateData: UpdateDoctorData = {
+          id: selectedMedico.id,
+          nome: formData.nome,
+          crm: formData.crm,
+          especialidade: formData.especialidade,
+          telefone: formData.telefone,
+          email: formData.email
+        };
+        
+        const result = await handleUpdateDoctor(updateData);
+        
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+      }
+      
+      setSuccess(true);
+      setTimeout(() => {
+        handleModalSuccess();
+      }, 1500);
+    } catch (error) {
+      console.error('Erro ao salvar médico:', error);
+      setError('Ocorreu um erro ao salvar os dados. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -111,12 +255,14 @@ export default function DoctorPage() {
   const handleAdd = () => {
     setSelectedMedico(null);
     setModalMode('create');
+    setSuccess(false);
     setShowModal(true);
   };
 
   const handleEdit = (medico: Medico) => {
     setSelectedMedico(medico);
     setModalMode('edit');
+    setSuccess(false);
     setShowModal(true);
   };
 
@@ -141,383 +287,13 @@ export default function DoctorPage() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedMedico(null);
+    setError(null);
+    setSuccess(false);
   };
 
   const handleModalSuccess = () => {
     closeModal();
     loadData();
-  };
-
-  // Renderizar componente principal
-  return (
-    <div className="space-y-6">
-      {/* Error Banner */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3"
-        >
-          <AlertCircle className="w-5 h-5 text-red-500" />
-          <div className="flex-1">
-            <p className="text-red-800 font-medium">Erro ao carregar dados</p>
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            className="flex items-center space-x-2 text-red-600 hover:text-red-800"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            <span className="text-sm">Tentar novamente</span>
-          </button>
-        </motion.div>
-      )}
-
-      <Medicos
-        medicos={medicos}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        selectedEspecialidade={selectedEspecialidade}
-        setSelectedEspecialidade={setSelectedEspecialidade}
-        loading={loading}
-        stats={stats}
-        handleAdd={handleAdd}
-        handleEdit={handleEdit}
-        handleDelete={handleDelete}
-      />
-
-      {/* Modal para Criar/Editar Médico */}
-      {showModal && (
-        <MedicoModal
-          isOpen={showModal}
-          onClose={closeModal}
-          medico={selectedMedico}
-          mode={modalMode}
-          onSuccess={handleModalSuccess}
-        />
-      )}
-    </div>
-  );
-}
-
-// Componente Modal para Criar/Editar Médico
-interface MedicoModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  medico: Medico | null;
-  mode: 'create' | 'edit';
-  onSuccess: () => void;
-}
-
-function MedicoModal({ isOpen, onClose, medico, mode, onSuccess }: MedicoModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  
-  // Remover status do formData
-  const [formData, setFormData] = useState<{
-    nome: string;
-    crm: string;
-    especialidade: string;
-    telefone: string;
-    email: string;
-  }>({
-    nome: '',
-    crm: '',
-    especialidade: '',
-    telefone: '',
-    email: ''
-  });
-
-  // Reset form quando modal abre/fecha
-  useEffect(() => {
-    if (isOpen) {
-      if (mode === 'edit' && medico) {
-        setFormData({
-          nome: medico.name,
-          crm: medico.crm,
-          especialidade: medico.specialty,
-          telefone: medico.phone,
-          email: medico.email
-          // Removido o status
-        });
-      } else {
-        setFormData({
-          nome: '',
-          crm: '',
-          especialidade: '',
-          telefone: '',
-          email: ''
-          // Removido o status
-        });
-      }
-      setError('');
-      setSuccess(false);
-    }
-  }, [isOpen, mode, medico]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.nome || !formData.crm || !formData.especialidade || !formData.telefone || !formData.email) {
-      setError('Todos os campos são obrigatórios');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('nome', formData.nome);
-      formDataToSend.append('crm', formData.crm);
-      formDataToSend.append('especialidade', formData.especialidade);
-      formDataToSend.append('telefone', formData.telefone);
-      formDataToSend.append('email', formData.email);
-      // Removido o campo status
-
-      let result;
-      if (mode === 'edit' && medico) {
-        formDataToSend.append('id', medico.id);
-        result = await handleUpdateDoctor(formDataToSend);
-      } else {
-        result = await handleCreateDoctor(formDataToSend);
-      }
-
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        setSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Erro ao salvar médico:', error);
-      setError('Erro interno do servidor');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6">
-          <h3 className="text-xl font-bold text-slate-800 mb-6">
-            {mode === 'create' ? 'Novo Médico' : 'Editar Médico'}
-          </h3>
-
-          <motion.form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Nome Completo
-              </label>
-              <input
-                type="text"
-                name="nome"
-                value={formData.nome}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Dr. João Silva"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                CRM
-              </label>
-              <input
-                type="text"
-                name="crm"
-                value={formData.crm}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="CRM/SP 12345"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Especialidade
-              </label>
-              <input
-                type="text"
-                name="especialidade"
-                value={formData.especialidade}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Cardiologia"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Telefone
-              </label>
-              <input
-                type="tel"
-                name="telefone"
-                value={formData.telefone}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="(11) 99999-9999"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="medico@clinica.com"
-              />
-            </div>
-
-            {/* Removido o seletor de status */}
-
-            {/* Mensagem de erro */}
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm flex items-center gap-2"
-              >
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                {error}
-              </motion.div>
-            )}
-
-            {/* Mensagem de sucesso */}
-            <AnimatePresence>
-              {success && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3 bg-green-50 border border-green-100 rounded-lg text-green-700 text-sm flex items-center gap-2"
-                >
-                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                  <span>
-                    Médico {mode === 'create' ? 'cadastrado' : 'atualizado'} com sucesso!
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex items-center space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isLoading}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                whileHover={!isLoading && !success ? { scale: 1.02 } : {}}
-                whileTap={!isLoading && !success ? { scale: 0.98 } : {}}
-                className={`flex-1 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 font-medium ${
-                  success 
-                    ? 'bg-green-500 text-white'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                } transition-colors disabled:opacity-70`}
-              >
-                {isLoading ? (
-                  <>
-                    <div 
-                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
-                    />
-                    <span>Salvando...</span>
-                  </>
-                ) : success ? (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Salvo com sucesso!</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    <span>{mode === 'create' ? 'Cadastrar' : 'Salvar'}</span>
-                  </>
-                )}
-              </motion.button>
-            </div>
-          </motion.form>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// Componente principal Medicos atualizado
-interface MedicosProps {
-  medicos: Medico[];
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  selectedEspecialidade: string;
-  setSelectedEspecialidade: (especialidade: string) => void;
-  loading: boolean;
-  stats: MedicosStats;
-  handleAdd: () => void;
-  handleEdit: (medico: Medico) => void;
-  handleDelete: (id: string) => void;
-}
-
-const Medicos: React.FC<MedicosProps> = ({ 
-  medicos, 
-  searchTerm,
-  setSearchTerm,
-  selectedEspecialidade,
-  setSelectedEspecialidade,
-  loading,
-  stats,
-  handleAdd, 
-  handleEdit, 
-  handleDelete 
-}) => {
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { 
-        duration: 0.6,
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: { opacity: 1, x: 0 }
   };
 
   // Filtros
@@ -533,37 +309,100 @@ const Medicos: React.FC<MedicosProps> = ({
 
   const especialidades = [...new Set(medicos.map(m => m.specialty))];
 
+  // Elementos de background estilizados com base na página de login
+  const backgroundElements = [
+    { left: '5%', top: '15%', size: 200 },
+    { left: '90%', top: '10%', size: 250 },
+    { left: '80%', top: '60%', size: 180 },
+    { left: '20%', top: '80%', size: 220 },
+    { left: '40%', top: '30%', size: 160 }
+  ];
+
+  if (!isMounted) {
+    return null; // Evita problemas de hidratação durante SSR
+  }
+
   return (
     <motion.div
-      key="medicos"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      exit="hidden"
-      className="space-y-6"
+      className="space-y-8 w-full relative overflow-hidden pb-10"
     >
+      {/* Elementos de background estilizados */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {backgroundElements.map((el, i) => (
+          <motion.div
+            key={i}
+            variants={floatingVariants}
+            animate="animate"
+            className="absolute rounded-full bg-gradient-to-r from-blue-900/10 to-emerald-900/10 dark:from-blue-500/10 dark:to-emerald-500/10 blur-2xl"
+            style={{
+              left: el.left,
+              top: el.top,
+              width: `${el.size}px`,
+              height: `${el.size}px`,
+              animationDelay: `${i * 0.5}s`
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Error Banner */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800 rounded-lg p-4 flex items-center space-x-3"
+          >
+            <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
+            <div className="flex-1">
+              <p className="text-red-800 dark:text-red-300 font-medium">Erro ao carregar dados</p>
+              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              className="text-red-600 dark:text-red-400"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Tentar novamente
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header da página */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div variants={itemVariants} className="flex items-center justify-between p-2">
         <div>
-          <h2 className="text-4xl font-bold text-slate-800">Médicos</h2>
-          <p className="text-slate-500 mt-1">Gerencie o corpo médico da clínica</p>
-          <p className="text-sm text-slate-400 mt-1">
-            {loading ? (
-              <span className="flex items-center space-x-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Carregando...</span>
-              </span>
-            ) : (
-              `${medicos.length} médicos cadastrados`
-            )}
-          </p>
+          <div className="flex items-center space-x-3 mb-2">
+            <motion.div
+              whileHover={{ rotate: 360, scale: 1.1 }}
+              transition={{ duration: 0.6 }}
+              className="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 rounded-2xl flex items-center justify-center shadow-lg"
+            >
+              <UserCheck className="w-6 h-6 text-white" />
+            </motion.div>
+            <div>
+              <h2 className="text-4xl font-bold text-slate-800 dark:text-white">Médicos</h2>
+              <p className="text-slate-500 dark:text-slate-400">Gerencie o corpo médico da clínica</p>
+            </div>
+          </div>
+          <motion.div
+            variants={pulseVariants}
+            animate="animate"
+            className="w-20 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full"
+          />
         </div>
         <div className="flex items-center space-x-4">
           {/* Filtro por especialidade */}
           <select
             value={selectedEspecialidade}
             onChange={(e) => setSelectedEspecialidade(e.target.value)}
-            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Todas especialidades</option>
             {especialidades.map(esp => (
@@ -571,250 +410,458 @@ const Medicos: React.FC<MedicosProps> = ({
             ))}
           </select>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleAdd}
-            disabled={loading}
-            className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">Novo Médico</span>
-          </motion.button>
+          <Button variant="default" onClick={handleAdd} disabled={loading}>
+            <Plus className="w-5 h-5 mr-2" />
+            Novo Médico
+          </Button>
         </div>
       </motion.div>
 
       {/* Cards de estatísticas */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Total de Médicos</p>
-              <p className="text-2xl font-bold">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Total de Médicos
+              </CardTitle>
+              <motion.div whileHover={{ rotate: 15 }}>
+                <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+              </motion.div>
+            </CardHeader>
+            <CardContent>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, type: "spring" }}
+                className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+              >
                 {loading ? (
                   <Loader2 className="w-6 h-6 animate-spin" />
                 ) : (
                   stats.totalMedicos || medicos.length
                 )}
-              </p>
-            </div>
-            <UserCheck className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Especialidades</p>
-              <p className="text-2xl font-bold">
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Especialidades
+              </CardTitle>
+              <motion.div whileHover={{ rotate: 15 }}>
+                <Award className="h-4 w-4 text-purple-600 dark:text-purple-500" />
+              </motion.div>
+            </CardHeader>
+            <CardContent>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6, type: "spring" }}
+                className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+              >
                 {loading ? (
                   <Loader2 className="w-6 h-6 animate-spin" />
                 ) : (
                   stats.especialidades || especialidades.length
                 )}
-              </p>
-            </div>
-            <Award className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Consultas Hoje</p>
-              <p className="text-2xl font-bold">
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-emerald-500 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Consultas Hoje
+              </CardTitle>
+              <motion.div whileHover={{ rotate: 15 }}>
+                <Stethoscope className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+              </motion.div>
+            </CardHeader>
+            <CardContent>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.7, type: "spring" }}
+                className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+              >
                 {loading ? (
                   <Loader2 className="w-6 h-6 animate-spin" />
                 ) : (
                   stats.consultasHoje || 0
                 )}
-              </p>
-            </div>
-            <Stethoscope className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Disponíveis Hoje
+              </CardTitle>
+              <motion.div whileHover={{ rotate: 15 }}>
+                <Award className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+              </motion.div>
+            </CardHeader>
+            <CardContent>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.8, type: "spring" }}
+                className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+              >
+                {loading ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  stats.totalMedicos || 0
+                )}
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </motion.div>
 
-      {/* Grid de cards dos médicos */}
-      <motion.div variants={itemVariants} className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-slate-800">Corpo Médico</h3>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Buscar médico, especialidade ou CRM..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-80"
-              />
+      {/* Barra de Pesquisa */}
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-lg">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Corpo Médico</CardTitle>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Buscar médico, especialidade ou CRM..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-full md:w-80"
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          </CardHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center space-x-3">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              <p className="text-slate-500">Carregando médicos...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {medicosFiltrados.map((medico, index) => (
-              <motion.div
-                key={medico.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -4, scale: 1.02 }}
-                className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 hover:shadow-xl transition-all duration-300"
-              >
-                {/* Header do card */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center">
-                      <Stethoscope className="w-8 h-8 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 text-lg">{medico.name}</h4>
-                      <p className="text-sm text-slate-500">CRM: {medico.crm}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-1">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleEdit(medico)}
-                      className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                      title="Editar médico"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </motion.button>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleDelete(medico.id)}
-                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                      title="Excluir médico"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </motion.button>
-                  </div>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center space-x-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                  <p className="text-slate-500 dark:text-slate-400">Carregando médicos...</p>
                 </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                {medicosFiltrados.map((medico, index) => (
+                  <motion.div
+                    key={medico.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                  >
+                    <Card className="hover:shadow-xl transition-all duration-300 overflow-hidden">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-2xl flex items-center justify-center shadow-md">
+                              <Stethoscope className="w-8 h-8 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-800 dark:text-white text-lg">{medico.name}</h4>
+                              <p className="text-sm text-slate-500 dark:text-slate-400">CRM: {medico.crm}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(medico)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            
+                            <Button variant="ghost" size="icon" className="text-red-600" onClick={() => handleDelete(medico.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
 
-                {/* Especialidade */}
-                <div className="mb-4">
-                  <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
-                    <Award className="w-3 h-3 mr-1" />
-                    {medico.specialty}
-                  </span>
-                </div>
+                      <CardContent>
+                        {/* Especialidade */}
+                        <div className="mb-4">
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                            <Award className="w-3 h-3 mr-1" />
+                            {medico.specialty}
+                          </Badge>
+                        </div>
 
-                {/* Informações de contato */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 text-sm text-slate-600">
-                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                      <Phone className="w-4 h-4 text-slate-500" />
-                    </div>
-                    <span>{medico.phone}</span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3 text-sm text-slate-600">
-                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                      <Mail className="w-4 h-4 text-slate-500" />
-                    </div>
-                    <span className="truncate">{medico.email}</span>
-                  </div>
-                </div>
+                        {/* Informações de contato */}
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3 text-sm text-slate-600 dark:text-slate-300">
+                            <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                              <Phone className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                            </div>
+                            <span>{medico.phone}</span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-3 text-sm text-slate-600 dark:text-slate-300">
+                            <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                              <Mail className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                            </div>
+                            <span className="truncate">{medico.email}</span>
+                          </div>
+                        </div>
 
-                {/* Status e ações */}
-                <div className="mt-6 pt-4 border-t border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      {/* Informação adicional relevante - data de cadastro */}
-                      {medico.created_at && (
-                        <span className="text-xs text-slate-500">
-                          Cadastrado em: {new Date(medico.created_at).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full hover:bg-blue-100 transition-colors"
-                      >
-                        Ver Agenda
-                      </motion.button>
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-xs bg-green-50 text-green-600 px-3 py-1 rounded-full hover:bg-green-100 transition-colors"
-                      >
-                        Agendar
-                      </motion.button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+                        <Separator className="my-4" />
 
-        {!loading && medicosFiltrados.length === 0 && (
-          <div className="text-center py-12">
-            <UserCheck className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 text-lg mb-2">Nenhum médico encontrado</p>
-            <p className="text-slate-400 text-sm">
-              {searchTerm || selectedEspecialidade ? 'Tente ajustar os filtros de busca' : 'Comece cadastrando um novo médico'}
-            </p>
-          </div>
-        )}
+                        {/* Status e ações */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            {/* Informação adicional relevante - data de cadastro */}
+                            {medico.created_at && (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                Cadastrado em: {new Date(medico.created_at).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <Button variant="outline" size="sm" className="text-blue-600">
+                              Ver Agenda
+                            </Button>
+                            
+                            <Button variant="outline" size="sm" className="text-green-600">
+                              Agendar
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {!loading && medicosFiltrados.length === 0 && (
+              <div className="text-center py-12">
+                <UserCheck className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 text-lg mb-2">Nenhum médico encontrado</p>
+                <p className="text-slate-400 dark:text-slate-500 text-sm">
+                  {searchTerm || selectedEspecialidade ? 'Tente ajustar os filtros de busca' : 'Comece cadastrando um novo médico'}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Especialidades em destaque */}
       {!loading && especialidades.length > 0 && (
-        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Especialidades Disponíveis</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {especialidades.map((especialidade, index) => {
-              const medicosEspecialidade = medicos.filter(m => m.specialty === especialidade);
-              const isSelected = selectedEspecialidade === especialidade;
-              
-              return (
-                <motion.div
-                  key={especialidade}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => setSelectedEspecialidade(isSelected ? '' : especialidade)}
-                  className={`text-center p-4 rounded-xl cursor-pointer transition-all duration-300 ${
-                    isSelected 
-                      ? 'bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-300' 
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100 hover:from-blue-50 hover:to-blue-100'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
-                    isSelected ? 'bg-blue-600' : 'bg-blue-500'
-                  }`}>
-                    <Stethoscope className="w-6 h-6 text-white" />
-                  </div>
-                  <h4 className="font-medium text-slate-800 text-sm mb-1">{especialidade}</h4>
-                  <p className="text-xs text-slate-500">
-                    {medicosEspecialidade.length} médico{medicosEspecialidade.length !== 1 ? 's' : ''}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </div>
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Especialidades Disponíveis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {especialidades.map((especialidade, index) => {
+                  const medicosEspecialidade = medicos.filter(m => m.specialty === especialidade);
+                  const isSelected = selectedEspecialidade === especialidade;
+                  
+                  return (
+                    <motion.div
+                      key={especialidade}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.1 }}
+                      onClick={() => setSelectedEspecialidade(isSelected ? '' : especialidade)}
+                      className={`text-center p-4 rounded-xl cursor-pointer transition-all duration-300 ${
+                        isSelected 
+                          ? 'bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 border-2 border-blue-300 dark:border-blue-700' 
+                          : 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 hover:from-blue-50 hover:to-blue-100 dark:hover:from-blue-900/30 dark:hover:to-blue-800/30'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                        isSelected ? 'bg-blue-600' : 'bg-blue-500'
+                      }`}>
+                        <Stethoscope className="w-6 h-6 text-white" />
+                      </div>
+                      <h4 className="font-medium text-slate-800 dark:text-white text-sm mb-1">{especialidade}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {medicosEspecialidade.length} médico{medicosEspecialidade.length !== 1 ? 's' : ''}
+                      </p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
-      )}
+      )}     
+
+      {/* Modal para Criar/Editar Médico */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {modalMode === 'create' ? 'Novo Médico' : 'Editar Médico'}
+            </DialogTitle>
+            <DialogDescription>
+              {modalMode === 'create' 
+                ? 'Preencha os dados para cadastrar um novo médico' 
+                : 'Atualize as informações do médico'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <motion.div
+            variants={pulseVariants}
+            animate="animate"
+            className="w-20 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full mx-auto mb-6"
+          />
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Nome Completo
+              </label>
+              <Input
+                type="text"
+                name="nome"
+                value={formData.nome}
+                onChange={handleInputChange}
+                required
+                placeholder="Dr. João Silva"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                CRM
+              </label>
+              <Input
+                type="text"
+                name="crm"
+                value={formData.crm}
+                onChange={handleInputChange}
+                required
+                placeholder="CRM/SP 12345"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Especialidade
+              </label>
+              <Input
+                type="text"
+                name="especialidade"
+                value={formData.especialidade}
+                onChange={handleInputChange}
+                required
+                placeholder="Cardiologia"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Telefone
+              </label>
+              <Input
+                type="tel"
+                name="telefone"
+                value={formData.telefone}
+                onChange={handleInputChange}
+                required
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Email
+              </label>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                placeholder="medico@clinica.com"
+              />
+            </div>
+
+            {/* Mensagem de erro */}
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm flex items-center gap-2"
+                >
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Mensagem de sucesso */}
+            <AnimatePresence>
+              {success && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg text-green-700 dark:text-green-300 text-sm flex items-center gap-2"
+                >
+                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                  <span>
+                    Médico {modalMode === 'create' ? 'cadastrado' : 'atualizado'} com sucesso!
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex items-center space-x-3 pt-4">
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={closeModal}
+                disabled={isLoading}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className={`flex-1 ${success ? 'bg-green-500 hover:bg-green-600' : ''}`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : success ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Salvo com sucesso!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    {modalMode === 'create' ? 'Cadastrar' : 'Salvar'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
-};
+}

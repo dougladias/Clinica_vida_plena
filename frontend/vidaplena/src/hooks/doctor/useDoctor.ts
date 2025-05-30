@@ -4,6 +4,13 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { api } from '@/services/api';
 import { cookies } from 'next/headers';
+import { 
+  Medico, 
+  MedicosStats, 
+  CreateDoctorData, 
+  UpdateDoctorData,
+  ApiResponse
+} from '@/types/doctor.type';
 
 // Função para obter o token de autenticação
 async function getAuthToken(): Promise<string> {
@@ -19,7 +26,7 @@ async function getAuthToken(): Promise<string> {
 }
 
 // Buscar todos os médicos
-export async function getDoctors() {
+export async function getDoctors(): Promise<Medico[]> {
   try {
     const token = await getAuthToken();
     
@@ -39,51 +46,57 @@ export async function getDoctors() {
   }
 }
 
-// Buscar estatísticas dos médicos
-export async function getDoctorStats() {
+// Buscar estatísticas dos médicos - Ajustado para calcular localmente
+export async function getDoctorStats(): Promise<MedicosStats | null> {
   try {
     const token = await getAuthToken();
     
-    // Faz a requisição para a API de estatísticas dos médicos
-    const response = await api.get('/doctor/stats', {
+    // Como não temos o endpoint /doctor/stats no backend,
+    // vamos calcular as estatísticas diretamente com os dados dos médicos
+    const response = await api.get('/doctor', {
       headers: {
         'Authorization': `Bearer ${token}`,
-      },
+      }      
     });
 
-    return response.data;
+    if (response.data) {
+      const medicos = response.data as Medico[];
+      // Extraímos as especialidades únicas
+      const especialidades = [...new Set(medicos.map(medico => medico.specialty))];
+      
+      // Retornamos as estatísticas calculadas
+      return {
+        totalMedicos: medicos.length,
+        especialidades: especialidades.length,
+        consultasHoje: 0 // Não temos essa informação, então deixamos zero
+      };
+    }
+    
+    return null;
   } catch (error) {
-    console.log('Erro ao buscar estatísticas:', error);
-    // Retornamos null para que o frontend possa calcular localmente se necessário
+    console.log('Erro ao calcular estatísticas:', error);
     return null;
   }
 }
 
-// Criar médico - removendo o status
-export async function handleCreateDoctor(formdata: FormData) {
-  const nome = formdata.get("nome") as string;
-  const crm = formdata.get("crm") as string;
-  const especialidade = formdata.get("especialidade") as string;
-  const telefone = formdata.get("telefone") as string;
-  const email = formdata.get("email") as string;
-
-  // Removido o campo status que não existe no banco de dados
-  if (!nome || !crm || !especialidade || !telefone || !email) {
+// Criar médico
+export async function handleCreateDoctor(dadosDoctor: CreateDoctorData): Promise<ApiResponse> {
+  // Verifica se todos os campos estão preenchidos
+  if (!dadosDoctor.nome || !dadosDoctor.crm || !dadosDoctor.especialidade || 
+      !dadosDoctor.telefone || !dadosDoctor.email) {
     return { error: "Todos os campos são obrigatórios" };
   }
 
-  // Verifica se o CRM já existe
   try {
     const token = await getAuthToken();
     
-    // Verifica se o CRM já está cadastrado
+    // Ajustando os nomes dos campos para corresponder ao backend
     await api.post('/doctor', {
-      name: nome,
-      crm,
-      specialty: especialidade,
-      phone: telefone,
-      email
-      // Removido o status
+      name: dadosDoctor.nome,
+      crm: dadosDoctor.crm,
+      specialty: dadosDoctor.especialidade,
+      phone: dadosDoctor.telefone,
+      email: dadosDoctor.email
     }, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -111,34 +124,26 @@ export async function handleCreateDoctor(formdata: FormData) {
   }
 }
 
-// Atualizar médico - removendo o status
-export async function handleUpdateDoctor(formdata: FormData) {
-  const id = formdata.get("id") as string;
-  const nome = formdata.get("nome") as string;
-  const crm = formdata.get("crm") as string;
-  const especialidade = formdata.get("especialidade") as string;
-  const telefone = formdata.get("telefone") as string;
-  const email = formdata.get("email") as string;
-  // Removido o campo status
-
-  if (!id) {
+// Atualizar médico
+export async function handleUpdateDoctor(dadosDoctor: UpdateDoctorData): Promise<ApiResponse> {
+  if (!dadosDoctor.id) {
     return { error: "ID é obrigatório" };
   }
 
-  // Verifica se os campos obrigatórios estão preenchidos
   try {
     const token = await getAuthToken();
     
-    // Removido o campo status do objeto updateData
-    const updateData: { name?: string; crm?: string; specialty?: string; phone?: string; email?: string } = {};
-    if (nome) updateData.name = nome;
-    if (crm) updateData.crm = crm;
-    if (especialidade) updateData.specialty = especialidade;
-    if (telefone) updateData.phone = telefone;
-    if (email) updateData.email = email;
+    // Ajustando os nomes dos campos para corresponder ao backend
+    const updateData = {
+      name: dadosDoctor.nome,
+      crm: dadosDoctor.crm,
+      specialty: dadosDoctor.especialidade,
+      phone: dadosDoctor.telefone,
+      email: dadosDoctor.email
+    };
     
     // Faz a requisição para atualizar o médico
-    await api.put(`/doctor/${id}`, updateData, {
+    await api.put(`/doctor/${dadosDoctor.id}`, updateData, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -165,13 +170,12 @@ export async function handleUpdateDoctor(formdata: FormData) {
   }
 }
 
-// Deletar médico - sem alterações necessárias
-export async function handleDeleteDoctor(id: string) {
+// Deletar médico
+export async function handleDeleteDoctor(id: string): Promise<ApiResponse> {
   if (!id) {
     return { error: "ID é obrigatório" };
   }
 
-  // Verifica se o ID é válido
   try {
     const token = await getAuthToken();
     
