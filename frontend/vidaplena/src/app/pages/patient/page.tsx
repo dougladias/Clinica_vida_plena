@@ -5,8 +5,24 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { 
   Users, Edit, Trash2, User, Phone, MapPin, Calendar, Search, 
   ChevronLeft, ChevronRight, X, Save, AlertCircle, CheckCircle, 
-  FileText, UserPlus, RefreshCw, Shield, Activity
+  UserPlus, RefreshCw, Shield, Activity, MoreHorizontal
 } from 'lucide-react';
+
+// shadcn/ui imports
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
+
 import { 
   getPatients, 
   getActiveConsultations, 
@@ -14,24 +30,7 @@ import {
   handleUpdatePatient,
   handleDeletePatient 
 } from '@/hooks/patient/usePatient';
-
-interface Patient {
-  id: string;
-  name: string;
-  cpf: string;
-  date_birth: string;
-  address: string;
-  phone: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PatientStats {
-  total: number;
-  newThisMonth: number;
-  activeConsultations: number;
-  activePatients: number;
-}
+import { Patient, PatientStats, PatientModalProps, PatientFormData } from '@/types/patient.type';
 
 export default function PatientsPage() {
   // Estados principais
@@ -99,22 +98,7 @@ export default function PatientsPage() {
     }
   };
 
-  const tableRowVariants: Variants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (i) => ({ 
-      opacity: 1, 
-      x: 0,
-      transition: { 
-        delay: i * 0.05,
-        duration: 0.4
-      }
-    }),
-    hover: {
-      backgroundColor: "rgba(241, 245, 249, 0.7)",
-      transition: { duration: 0.2 }
-    }
-  };
-
+  // Animation variants
   const floatingVariants = {
     animate: {
       y: [0, -10, 0],
@@ -224,6 +208,15 @@ export default function PatientsPage() {
     return age;
   };
 
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   // Filtragem e paginação
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -238,7 +231,7 @@ export default function PatientsPage() {
   // Loading
   if (loading) {
     return (
-      <div className="relative overflow-hidden animate-pulse space-y-8 w-full min-h-[70vh] p-8 rounded-2xl">
+      <div className="relative overflow-hidden space-y-8 w-full min-h-[70vh] p-8 rounded-2xl">
         {/* Elementos de fundo animados */}
         <div className="absolute inset-0 overflow-hidden -z-10">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -268,28 +261,38 @@ export default function PatientsPage() {
         </div>
 
         <div className="flex justify-between items-center relative z-10">
-          <div className="w-64 h-12 bg-slate-200 rounded-lg"></div>
-          <div className="w-40 h-10 bg-slate-200 rounded-lg"></div>
+          <Skeleton className="w-64 h-12" />
+          <Skeleton className="w-40 h-10" />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-28 bg-slate-200 rounded-xl shadow-sm"></div>
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-20" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-12" />
+              </CardContent>
+            </Card>
           ))}
         </div>
 
-        <div className="bg-white/60 backdrop-blur-sm rounded-xl shadow-sm">
-          <div className="h-16 bg-slate-100 rounded-t-xl"></div>
-          <div className="p-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-20 bg-slate-100 rounded-lg"></div>
+              <Skeleton key={i} className="h-16 w-full" />
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
         
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
             <span className="text-sm text-slate-500">Carregando dados...</span>
           </div>
         </div>
@@ -298,508 +301,480 @@ export default function PatientsPage() {
   }
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-8 w-full relative overflow-hidden"
-    >
-      {/* Elementos de fundo dinâmicos */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-        {backgroundElements.map((el, i) => (
-          <motion.div
-            key={i}
-            variants={floatingVariants}
-            animate="animate"
-            className="absolute rounded-full bg-gradient-to-r from-green-50/30 to-blue-50/30 blur-2xl"
-            style={{
-              left: el.left,
-              top: el.top,
-              width: `${el.size}px`,
-              height: `${el.size}px`,
-              animationDelay: `${i * 0.5}s`
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Header com título e botões */}
+    <TooltipProvider>
       <motion.div
-        variants={itemVariants}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-8 w-full relative overflow-hidden"
       >
-        <div>
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="flex items-center gap-3"
-          >
+        {/* Elementos de fundo dinâmicos */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+          {backgroundElements.map((el, i) => (
             <motion.div
-              whileHover={{ rotate: 15, scale: 1.1 }}
-              transition={{ type: "spring", stiffness: 400 }}
-              className="p-3 bg-gradient-to-br from-green-400 to-green-600 text-white rounded-xl shadow-lg"
-            >
-              <Users className="w-6 h-6" />
-            </motion.div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
-              Pacientes
-            </h1>
-          </motion.div>
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-slate-500 mt-1"
-          >
-            Gerenciamento de {stats.total} pacientes cadastrados
-          </motion.p>
+              key={i}
+              variants={floatingVariants}
+              animate="animate"
+              className="absolute rounded-full bg-gradient-to-r from-emerald-900/20 to-blue-900/20 dark:from-emerald-500/10 dark:to-blue-500/10 blur-2xl"
+              style={{
+                left: el.left,
+                top: el.top,
+                width: `${el.size}px`,
+                height: `${el.size}px`,
+                animationDelay: `${i * 0.5}s`
+              }}
+            />
+          ))}
         </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          <motion.button
-            whileHover={{ scale: 1.05, boxShadow: "0 5px 15px rgba(0,0,0,0.1)" }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleRefresh}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>{refreshing ? 'Atualizando...' : 'Atualizar'}</span>
-          </motion.button>
+
+        {/* Header com título e botões */}
+        <motion.div
+          variants={itemVariants}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        >
+          <div>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="flex items-center gap-3"
+            >
+              <motion.div
+                whileHover={{ rotate: 15, scale: 1.1 }}
+                transition={{ type: "spring", stiffness: 400 }}
+                className="p-3 bg-gradient-to-br from-emerald-400 to-emerald-600 dark:from-emerald-600 dark:to-emerald-800 text-white rounded-xl shadow-lg"
+              >
+                <Users className="w-6 h-6" />
+              </motion.div>
+              <div>
+                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-200 dark:to-slate-400">
+                  Pacientes
+                </h1>                
+              </div>
+            </motion.div>
+          </div>
           
-          <motion.button
-            whileHover={{ scale: 1.05, boxShadow: "0 5px 15px rgba(0,0,0,0.1)" }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleAddPatient}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-md hover:shadow transition-all"
-          >
-            <UserPlus className="w-5 h-5" />
-            <span>Novo Paciente</span>
-          </motion.button>
-        </div>
-      </motion.div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="shadow-sm dark:border-slate-700 dark:text-slate-300"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Atualizando...' : 'Atualizar'}
+            </Button>
+            
+            <Button
+              onClick={handleAddPatient}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 dark:from-emerald-600 dark:to-emerald-800 shadow-md"
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              Novo Paciente
+            </Button>
+          </div>
+        </motion.div>
 
-      {/* Cards de estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div
-          variants={cardVariants}
-          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}
-          className="bg-gradient-to-br from-slate-50 to-green-50 border-l-4 border-green-500 rounded-xl shadow-sm p-5 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Total de Pacientes</p>
-              <motion.h3 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5, type: "spring" }}
-                className="mt-1 text-2xl font-semibold text-slate-800"
-              >
-                {stats.total}
-              </motion.h3>
-            </div>
-            <motion.div
-              whileHover={{ rotate: 15 }}
-              className="p-2 bg-green-100 rounded-lg"
-            >
-              <Users className="w-5 h-5 text-green-600" />
-            </motion.div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          variants={cardVariants}
-          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}
-          className="bg-gradient-to-br from-slate-50 to-blue-50 border-l-4 border-blue-500 rounded-xl shadow-sm p-5 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Novos (Mês Atual)</p>
-              <motion.h3 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.6, type: "spring" }}
-                className="mt-1 text-2xl font-semibold text-slate-800"
-              >
-                {stats.newThisMonth}
-              </motion.h3>
-            </div>
-            <motion.div
-              whileHover={{ rotate: 15 }}
-              className="p-2 bg-blue-100 rounded-lg"
-            >
-              <UserPlus className="w-5 h-5 text-blue-600" />
-            </motion.div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          variants={cardVariants}
-          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}
-          className="bg-gradient-to-br from-slate-50 to-purple-50 border-l-4 border-purple-500 rounded-xl shadow-sm p-5 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Consultas Ativas</p>
-              <motion.h3 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.7, type: "spring" }}
-                className="mt-1 text-2xl font-semibold text-slate-800"
-              >
-                {stats.activeConsultations}
-              </motion.h3>
-            </div>
-            <motion.div
-              whileHover={{ rotate: 15 }}
-              className="p-2 bg-purple-100 rounded-lg"
-            >
-              <Calendar className="w-5 h-5 text-purple-600" />
-            </motion.div>
-          </div>
-        </motion.div>
-        
-        <motion.div
-          variants={cardVariants}
-          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}
-          className="bg-gradient-to-br from-slate-50 to-amber-50 border-l-4 border-amber-500 rounded-xl shadow-sm p-5 transition-all duration-300"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Pacientes Ativos</p>
-              <motion.h3 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8, type: "spring" }}
-                className="mt-1 text-2xl font-semibold text-slate-800"
-              >
-                {stats.activePatients}
-              </motion.h3>
-            </div>
-            <motion.div
-              whileHover={{ rotate: 15 }}
-              className="p-2 bg-amber-100 rounded-lg"
-            >
-              <FileText className="w-5 h-5 text-amber-600" />
-            </motion.div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Lista de pacientes */}
-      <motion.div 
-        variants={itemVariants}
-        className="bg-white/80 backdrop-blur-sm rounded-xl shadow-md overflow-hidden"
-      >
-        <div className="border-b border-slate-100">
-          <div className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between gap-4">
-            <h2 className="text-lg font-medium text-slate-800 flex items-center gap-2">
-              <Users className="w-5 h-5 text-slate-500" />
-              Lista de Pacientes
-            </h2>
-
-            {/* Barra de pesquisa */}
-            <motion.div 
-              initial={{ opacity: 0, width: "80%" }}
-              animate={{ opacity: 1, width: "100%" }}
-              transition={{ delay: 0.5 }}
-              className="relative max-w-md w-full"
-            >
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <motion.input
-                whileFocus={{ boxShadow: "0 0 0 3px rgba(34, 197, 94, 0.2)" }}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Buscar por nome ou CPF..."
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-slate-50/80"
-              />
-              {searchTerm && (
-                <motion.button 
+        {/* Cards de estatísticas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <motion.div variants={cardVariants}>
+            <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-600 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Total de Pacientes
+                </CardTitle>
+                <motion.div whileHover={{ rotate: 15 }}>
+                  <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+                </motion.div>
+              </CardHeader>
+              <CardContent>
+                <motion.div
                   initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  transition={{ delay: 0.5, type: "spring" }}
+                  className="text-2xl font-bold text-slate-800 dark:text-slate-200"
                 >
-                  <X className="w-4 h-4" />
-                </motion.button>
-              )}
-            </motion.div>
-          </div>
-        </div>
-        
-        {/* Tabela responsiva */}
-        <div className="overflow-x-auto">
-          {filteredPatients.length > 0 ? (
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50/80 text-left">
-                  <th className="whitespace-nowrap px-6 py-3 text-sm font-medium text-slate-600">Paciente</th>
-                  <th className="whitespace-nowrap px-6 py-3 text-sm font-medium text-slate-600 hidden sm:table-cell">CPF</th>
-                  <th className="whitespace-nowrap px-6 py-3 text-sm font-medium text-slate-600 hidden md:table-cell">Idade</th>
-                  <th className="whitespace-nowrap px-6 py-3 text-sm font-medium text-slate-600 hidden lg:table-cell">Contato</th>
-                  <th className="whitespace-nowrap px-6 py-3 text-sm font-medium text-slate-600 hidden xl:table-cell">Endereço</th>
-                  <th className="whitespace-nowrap px-6 py-3 text-sm font-medium text-slate-600 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedPatients.map((patient, index) => (
-                  <motion.tr 
-                    key={patient.id}
-                    custom={index}
-                    variants={tableRowVariants}
-                    initial="hidden"
-                    animate="visible"
-                    whileHover="hover"
-                    className="transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <motion.div 
-                          whileHover={{ scale: 1.1, rotate: 5 }}
-                          className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center shadow-sm"
-                        >
-                          <User className="w-5 h-5 text-slate-600" />
-                        </motion.div>
-                        <div>
-                          <p className="font-medium text-slate-800">{patient.name}</p>
-                          <p className="text-xs text-slate-500 sm:hidden">
-                            CPF: {patient.cpf}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4 hidden sm:table-cell">
-                      <span className="font-mono text-sm text-slate-600">{patient.cpf}</span>
-                    </td>
-                    
-                    <td className="px-6 py-4 hidden md:table-cell">
-                      <div>
-                        <span className="text-slate-800">{calculateAge(patient.date_birth)} anos</span>
-                        <p className="text-xs text-slate-500">
-                          {new Date(patient.date_birth).toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4 hidden lg:table-cell">
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm text-slate-600">{patient.phone}</span>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4 hidden xl:table-cell">
-                      <div className="flex items-start gap-1 max-w-xs">
-                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-slate-600 line-clamp-1">{patient.address}</span>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <motion.button
-                          whileHover={{ scale: 1.2, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleEditPatient(patient)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Editar paciente"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </motion.button>
-                        
-                        <motion.button
-                          whileHover={{ scale: 1.2, backgroundColor: "rgba(34, 197, 94, 0.1)" }}
-                          whileTap={{ scale: 0.9 }}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
-                          title="Ver prontuário"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </motion.button>
-                        
-                        <motion.button
-                          whileHover={{ scale: 1.2, backgroundColor: "rgba(239, 68, 68, 0.1)" }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleDeletePatientClick(patient.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Excluir paciente"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </motion.button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="flex flex-col items-center justify-center py-16"
-            >
-              <motion.div 
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ 
-                  type: "spring", 
-                  stiffness: 260, 
-                  damping: 20,
-                  delay: 0.6 
-                }}
-                className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center shadow-inner mb-4"
-              >
-                <Users className="w-10 h-10 text-slate-400" />
-              </motion.div>
-              <motion.h3 
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.7 }}
-                className="mt-4 text-lg font-medium text-slate-700"
-              >
-                Nenhum paciente encontrado
-              </motion.h3>
-              <motion.p 
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="mt-1 text-slate-500 text-center max-w-md"
-              >
-                {searchTerm 
-                  ? `Não encontramos resultados para "${searchTerm}". Tente outro termo.`
-                  : 'Você ainda não cadastrou nenhum paciente. Clique em "Novo Paciente" para começar.'
-                }
-              </motion.p>
-              {searchTerm && (
-                <motion.button 
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ delay: 0.9 }}
-                  onClick={() => setSearchTerm('')}
-                  className="mt-4 px-4 py-2 bg-slate-100 rounded-lg text-slate-600 hover:bg-slate-200 transition-colors shadow-sm"
-                >
-                  Limpar pesquisa
-                </motion.button>
-              )}
-            </motion.div>
-          )}
-        </div>
-        
-        {/* Paginação */}
-        {filteredPatients.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="px-6 py-4 border-t border-slate-100 bg-white/80"
-          >
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <p className="text-sm text-slate-500 order-2 sm:order-1">
-                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredPatients.length)} de {filteredPatients.length} pacientes
-              </p>
-              <div className="flex items-center gap-2 order-1 sm:order-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage <= 1}
-                  className="flex items-center px-3 py-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Anterior
-                </motion.button>
-                
-                <div className="hidden sm:flex gap-1">
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let page = i + 1;
-                    if (totalPages > 5) {
-                      if (currentPage <= 3) {
-                        page = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        page = totalPages - 4 + i;
-                      } else {
-                        page = currentPage - 2 + i;
-                      }
-                    }
-                    
-                    return (
-                      <motion.button
-                        key={page}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setCurrentPage(page)}
-                        className={`w-8 h-8 flex items-center justify-center text-sm rounded transition-colors shadow-sm ${
-                          page === currentPage
-                            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white font-medium'
-                            : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {page}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-                
-                <div className="sm:hidden">
-                  <span className="text-sm text-slate-600 px-3 py-1.5 bg-white border border-slate-200 rounded">
-                    {currentPage} de {totalPages}
-                  </span>
-                </div>
-                
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="flex items-center px-3 py-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                >
-                  Próximo
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </motion.button>
-              </div>
-            </div>
+                  {stats.total}
+                </motion.div>
+              </CardContent>
+            </Card>
           </motion.div>
-        )}
+          
+          <motion.div variants={cardVariants}>
+            <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-600 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Novos (Mês Atual)
+                </CardTitle>
+                <motion.div whileHover={{ rotate: 15 }}>
+                  <UserPlus className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+                </motion.div>
+              </CardHeader>
+              <CardContent>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6, type: "spring" }}
+                  className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+                >
+                  {stats.newThisMonth}
+                </motion.div>                
+              </CardContent>
+            </Card>
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <Card className="border-l-4 border-l-purple-500 dark:border-l-purple-600 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Consultas Ativas
+                </CardTitle>
+                <motion.div whileHover={{ rotate: 15 }}>
+                  <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-500" />
+                </motion.div>
+              </CardHeader>
+              <CardContent>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7, type: "spring" }}
+                  className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+                >
+                  {stats.activeConsultations}
+                </motion.div>                
+              </CardContent>
+            </Card>
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-600 hover:shadow-lg transition-all duration-300 dark:bg-slate-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Pacientes Ativos
+                </CardTitle>
+                <motion.div whileHover={{ rotate: 15 }}>
+                  <Activity className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                </motion.div>
+              </CardHeader>
+              <CardContent>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8, type: "spring" }}
+                  className="text-2xl font-bold text-slate-800 dark:text-slate-200"
+                >
+                  {stats.activePatients}
+                </motion.div>                
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Lista de pacientes */}
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-md dark:bg-slate-800 dark:border-slate-700">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2 dark:text-slate-200">
+                    <Users className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                    Lista de Pacientes
+                  </CardTitle>
+                  <CardDescription className="dark:text-slate-400">
+                    Gerencie todos os pacientes cadastrados no sistema
+                  </CardDescription>
+                </div>
+
+                {/* Barra de pesquisa */}
+                <motion.div 
+                  initial={{ opacity: 0, width: "80%" }}
+                  animate={{ opacity: 1, width: "100%" }}
+                  transition={{ delay: 0.5 }}
+                  className="relative max-w-md w-full"
+                >
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+                  <Input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Buscar por nome ou CPF..."
+                    className="pl-10 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:placeholder:text-slate-500"
+                  />
+                  {searchTerm && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </motion.div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="p-0">
+              {filteredPatients.length > 0 ? (
+                <Table>
+                  <TableHeader className="dark:bg-slate-900/50">
+                    <TableRow className="dark:border-slate-700">
+                      <TableHead className="pl-11 dark:text-slate-300">Paciente</TableHead>
+                      <TableHead className="hidden sm:table-cell pl-12 dark:text-slate-300">CPF</TableHead>
+                      <TableHead className="hidden md:table-cell pl-5 dark:text-slate-300">Idade</TableHead>
+                      <TableHead className="hidden lg:table-cell pl-12 dark:text-slate-300">Contato</TableHead>
+                      <TableHead className="hidden xl:table-cell dark:text-slate-300">Endereço</TableHead>
+                      <TableHead className="text-right pr-2 dark:text-slate-300">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedPatients.map((patient, index) => (
+                      <TableRow
+                        key={patient.id}
+                        className={`transition-colors animate-in fade-in slide-in-from-left-5 duration-300 dark:border-slate-700`}
+                        style={{
+                          animationDelay: `${index * 50}ms`,
+                          backgroundColor: "rgba(241, 245, 249, 0)"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "rgba(241, 245, 249, 0.7)";
+                          if (document.documentElement.classList.contains('dark')) {
+                            e.currentTarget.style.backgroundColor = "rgba(30, 41, 59, 0.7)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "rgba(241, 245, 249, 0)";
+                        }}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarFallback className="bg-gradient-to-br from-emerald-100 to-blue-100 dark:from-emerald-900 dark:to-blue-900 text-slate-700 dark:text-slate-300 font-medium">
+                                {getInitials(patient.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-slate-800 dark:text-slate-200">{patient.name}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 sm:hidden">
+                                CPF: {patient.cpf}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell className="hidden sm:table-cell">
+                          <Badge variant="outline" className="font-mono text-xs dark:border-slate-600 dark:text-slate-300">
+                            {patient.cpf}
+                          </Badge>
+                        </TableCell>
+                        
+                        <TableCell className="hidden md:table-cell">
+                          <div>
+                            <span className="text-slate-800 dark:text-slate-300 pl-2 font-medium">{calculateAge(patient.date_birth)} anos</span>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {new Date(patient.date_birth).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                            <span className="text-sm text-slate-600 dark:text-slate-300">{patient.phone}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell className="hidden xl:table-cell">
+                          <div className="flex items-start gap-2 max-w-xs">
+                            <MapPin className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2">{patient.address}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0 dark:text-slate-400 dark:hover:text-slate-300">
+                                  <span className="sr-only">Abrir menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="dark:bg-slate-900 dark:border-slate-700">
+                                <DropdownMenuItem onClick={() => handleEditPatient(patient)} className="dark:text-slate-300 dark:focus:text-slate-200 dark:focus:bg-slate-800">
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  <span>Editar</span>
+                                </DropdownMenuItem>                                
+                                <Separator className="dark:bg-slate-700" />
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeletePatientClick(patient.id)}
+                                  className="text-red-600 dark:text-red-500 dark:focus:bg-slate-800"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>Excluir</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>        
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="flex flex-col items-center justify-center py-16"
+                >
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: 260, 
+                      damping: 20,
+                      delay: 0.6 
+                    }}
+                    className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-full flex items-center justify-center shadow-inner mb-4"
+                  >
+                    <Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+                  </motion.div>
+                  <motion.h3 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                    className="mt-4 text-lg font-medium text-slate-700 dark:text-slate-300"
+                  >
+                    Nenhum paciente encontrado
+                  </motion.h3>
+                  <motion.p 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="mt-1 text-slate-500 dark:text-slate-400 text-center max-w-md"
+                  >
+                    {searchTerm 
+                      ? `Não encontramos resultados para "${searchTerm}". Tente outro termo.`
+                      : 'Você ainda não cadastrou nenhum paciente. Clique em "Novo Paciente" para começar.'
+                    }
+                  </motion.p>
+                  {searchTerm && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => setSearchTerm('')}
+                      className="mt-4 dark:border-slate-700 dark:text-slate-300"
+                    >
+                      Limpar pesquisa
+                    </Button>
+                  )}
+                </motion.div>
+              )}
+            </CardContent>
+            
+            {/* Paginação */}
+            {filteredPatients.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="px-6 py-4 border-t dark:border-slate-700"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 order-2 sm:order-1">
+                    Mostrando {startIndex + 1} a {Math.min(endIndex, filteredPatients.length)} de {filteredPatients.length} pacientes
+                  </p>
+                  <div className="flex items-center gap-2 order-1 sm:order-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage <= 1}
+                      className="dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Anterior
+                    </Button>
+                    
+                    <div className="hidden sm:flex gap-1">
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        let page = i + 1;
+                        if (totalPages > 5) {
+                          if (currentPage <= 3) {
+                            page = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            page = totalPages - 4 + i;
+                          } else {
+                            page = currentPage - 2 + i;
+                          }
+                        }
+                        
+                        return (
+                          <Button
+                            key={page}
+                            variant={page === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 p-0 ${
+                              page === currentPage
+                                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 dark:from-emerald-600 dark:to-emerald-800'
+                                : 'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            {page}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    
+                    <div className="sm:hidden">
+                      <Badge variant="outline" className="dark:border-slate-600 dark:text-slate-300">
+                        {currentPage} de {totalPages}
+                      </Badge>
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Próximo
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Modal de paciente - adaptação para tema escuro */}
+        <PatientModal 
+          isOpen={showModal}
+          onClose={closeModal}
+          patient={selectedPatient}
+          mode={modalMode}
+          onSuccess={handleModalSuccess}
+        />
       </motion.div>
-
-      {/* Modal de paciente */}
-      <PatientModal 
-        isOpen={showModal}
-        onClose={closeModal}
-        patient={selectedPatient}
-        mode={modalMode}
-        onSuccess={handleModalSuccess}
-      />
-    </motion.div>
+    </TooltipProvider>
   );
-};
-
-// Componente Modal
-interface PatientModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  patient?: Patient | null;
-  mode: 'create' | 'edit';
-  onSuccess: () => void;
 }
 
+// Componente Modal com shadcn/ui adaptado para tema escuro
 function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: PatientModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [particleElements, setParticleElements] = useState<Array<{left: string, top: string}>>([]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PatientFormData>({
     name: '',
     cpf: '',
     date_birth: '',
@@ -892,17 +867,9 @@ function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: PatientModa
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        onClick={onClose}
-      >
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-slate-900 dark:border-slate-800">
         {/* Elementos decorativos */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {particleElements.map((el, i) => (
@@ -920,7 +887,7 @@ function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: PatientModa
                 repeat: Infinity,
                 repeatDelay: 2
               }}
-              className="absolute w-3 h-3 rounded-full bg-green-400"
+              className="absolute w-3 h-3 rounded-full bg-emerald-400 dark:bg-emerald-600"
               style={{
                 left: el.left,
                 top: el.top,
@@ -929,283 +896,257 @@ function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: PatientModa
           ))}
         </div>
 
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 20 }}
-          transition={{ type: "spring", damping: 20 }}
-          className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Decorações de fundo */}
-          <div className="absolute top-0 right-0 -z-10 w-32 h-32 bg-green-100 rounded-full blur-3xl opacity-50"></div>
-          <div className="absolute bottom-0 left-0 -z-10 w-64 h-64 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
-          
-          <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 rounded-t-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <motion.div 
-                initial={{ scale: 0, rotate: 0 }}
-                animate={{ scale: 1, rotate: 10 }}
-                whileInView={{ rotate: 0 }}
-                transition={{ 
-                  scale: { type: "spring", damping: 10, delay: 0.2 },
-                  rotate: { type: "spring", damping: 10, delay: 0.4 }
-                }}
-                className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center shadow-md"
-              >
-                {mode === 'create' ? (
-                  <UserPlus className="w-5 h-5 text-white" />
-                ) : (
-                  <Edit className="w-5 h-5 text-white" />
-                )}
-              </motion.div>
-              <div>
-                <motion.h3 
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  className="text-lg font-semibold text-slate-800"
-                >
-                  {mode === 'create' ? 'Novo Paciente' : 'Editar Paciente'}
-                </motion.h3>
-                <motion.p 
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="text-sm text-slate-500"
-                >
-                  {mode === 'create' 
-                    ? 'Preencha os dados para cadastrar um novo paciente' 
-                    : 'Atualize as informações do paciente'
-                  }
-                </motion.p>
-              </div>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.1, backgroundColor: "rgba(241, 245, 249, 1)" }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <motion.div 
+              initial={{ scale: 0, rotate: 0 }}
+              animate={{ scale: 1, rotate: 10 }}
+              whileInView={{ rotate: 0 }}
+              transition={{ 
+                scale: { type: "spring", damping: 10, delay: 0.2 },
+                rotate: { type: "spring", damping: 10, delay: 0.4 }
+              }}
+              className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 dark:from-emerald-600 dark:to-emerald-800 rounded-lg flex items-center justify-center shadow-md"
             >
-              <X className="w-5 h-5 text-slate-500" />
-            </motion.button>
+              {mode === 'create' ? (
+                <UserPlus className="w-5 h-5 text-white" />
+              ) : (
+                <Edit className="w-5 h-5 text-white" />
+              )}
+            </motion.div>
+            <div>
+              <DialogTitle className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                {mode === 'create' ? 'Novo Paciente' : 'Editar Paciente'}
+              </DialogTitle>
+              <DialogDescription className="dark:text-slate-400">
+                {mode === 'create' 
+                  ? 'Preencha os dados para cadastrar um novo paciente' 
+                  : 'Atualize as informações do paciente'
+                }
+              </DialogDescription>
+            </div>
           </div>
+        </DialogHeader>
 
-          {/* Mensagens de feedback */}
-          <AnimatePresence>
-            {success && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mx-6 mt-6 p-4 bg-green-50 border border-green-100 rounded-lg flex items-center gap-2 text-green-800"
-              >
+        {/* Mensagens de feedback */}
+        <AnimatePresence>
+          {success && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: [0, 1.2, 1] }}
-                  transition={{ type: "spring", damping: 10 }}
+                  transition={{ 
+                    duration: 0.6,
+                    times: [0, 0.6, 1] 
+                  }}
                 >
-                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
                 </motion.div>
-                <span className="font-medium">
+                <AlertDescription className="text-emerald-800 dark:text-emerald-400 font-medium pl-5">
                   Paciente {mode === 'create' ? 'cadastrado' : 'atualizado'} com sucesso!
-                </span>
-              </motion.div>
-            )}
+                </AlertDescription>
+              </Alert>
+            </motion.div>
+          )}
 
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mx-6 mt-6 p-4 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2 text-red-800"
-              >
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <Alert variant="destructive">
                 <motion.div
                   animate={{ rotate: [0, 5, -5, 0] }}
                   transition={{ duration: 0.5, repeat: 3 }}
                 >
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  <AlertCircle className="h-4 w-4" />
                 </motion.div>
-                <span className="font-medium">{error}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <motion.form 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            onSubmit={handleSubmit} 
-            className="p-6 space-y-5"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <motion.div 
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="md:col-span-2"
-              >
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <User className="inline w-4 h-4 mr-1.5 text-slate-500" />
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-slate-400 transition-all"
-                  placeholder="Digite o nome completo"
-                  required
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <Shield className="inline w-4 h-4 mr-1.5 text-slate-500" />
-                  CPF *
-                </label>
-                <input
-                  type="text"
-                  name="cpf"
-                  value={formData.cpf}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-slate-400 transition-all"
-                  placeholder="000.000.000-00"
-                  required
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.5 }}
-              >
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <Calendar className="inline w-4 h-4 mr-1.5 text-slate-500" />
-                  Data de Nascimento *
-                </label>
-                <input
-                  type="date"
-                  name="date_birth"
-                  value={formData.date_birth}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                  required
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.6 }}
-              >
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <Phone className="inline w-4 h-4 mr-1.5 text-slate-500" />
-                  Telefone *
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder-slate-400 transition-all"
-                  placeholder="(00) 00000-0000"
-                  required
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.7 }}
-                className="md:col-span-2"
-              >
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <MapPin className="inline w-4 h-4 mr-1.5 text-slate-500" />
-                  Endereço Completo *
-                </label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  rows={2}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none placeholder-slate-400 transition-all"
-                  placeholder="Rua, número, bairro, cidade, CEP"
-                  required
-                />
-              </motion.div>
-            </div>
-
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200"
-            >
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                disabled={isLoading}
-              >
-                Cancelar
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05, boxShadow: "0 5px 15px rgba(0,0,0,0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                type="submit"
-                disabled={isLoading || success}
-                className="px-5 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-70 shadow-md"
-              >
-                {isLoading ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                    />
-                    <span>Salvando...</span>
-                  </>
-                ) : success ? (
-                  <>
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 400 }}
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                    </motion.div>
-                    <span>Salvo com sucesso!</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    <span>{mode === 'create' ? 'Cadastrar' : 'Salvar'}</span>
-                  </>
-                )}
-              </motion.button>
+                <AlertDescription className="font-medium">{error}</AlertDescription>
+              </Alert>
             </motion.div>
-          </motion.form>
+          )}
+        </AnimatePresence>
 
-          {/* Elementos de segurança no rodapé */}
-          <motion.div
+        <motion.form 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          onSubmit={handleSubmit} 
+          className="space-y-5"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="md:col-span-2"
+            >
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <User className="inline w-4 h-4 mr-1.5 text-slate-500 dark:text-slate-400" />
+                Nome Completo *
+              </label>
+              <Input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Digite o nome completo"
+                required
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <Shield className="inline w-4 h-4 mr-1.5 text-slate-500 dark:text-slate-400" />
+                CPF *
+              </label>
+              <Input
+                type="text"
+                name="cpf"
+                value={formData.cpf}
+                onChange={handleInputChange}
+                placeholder="000.000.000-00"
+                required
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <Calendar className="inline w-4 h-4 mr-1.5 text-slate-500 dark:text-slate-400" />
+                Data de Nascimento *
+              </label>
+              <Input
+                type="date"
+                name="date_birth"
+                value={formData.date_birth}
+                onChange={handleInputChange}
+                required
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <Phone className="inline w-4 h-4 mr-1.5 text-slate-500 dark:text-slate-400" />
+                Telefone *
+              </label>
+              <Input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                placeholder="(00) 00000-0000"
+                required
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="md:col-span-2"
+            >
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <MapPin className="inline w-4 h-4 mr-1.5 text-slate-500 dark:text-slate-400" />
+                Endereço Completo *
+              </label>
+              <Textarea
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                rows={2}
+                placeholder="Rua, número, bairro, cidade, CEP"
+                required
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500"
+              />
+            </motion.div>
+          </div>
+
+          <Separator className="dark:bg-slate-700" />
+
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="px-6 py-3 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500"
+            transition={{ delay: 0.8 }}
+            className="flex items-center justify-end gap-3 pt-2"
           >
-            <Activity className="w-3 h-3" />
-            <span>Dados protegidos e criptografados</span>
-            <Shield className="w-3 h-3" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+              className="dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={isLoading || success}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 dark:from-emerald-600 dark:to-emerald-800"
+            >
+              {isLoading ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"
+                  />
+                  Salvando...
+                </>
+              ) : success ? (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 400 }}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                  </motion.div>
+                  Salvo com sucesso!
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  {mode === 'create' ? 'Cadastrar' : 'Salvar'}
+                </>
+              )}
+            </Button>
           </motion.div>
+        </motion.form>
+
+        {/* Elementos de segurança no rodapé */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
+          className="flex items-center justify-center gap-2 pt-4 text-xs text-slate-500 dark:text-slate-400 border-t dark:border-slate-700"
+        >
+          <Activity className="w-3 h-3" />
+          <span>Dados protegidos e criptografados</span>
+          <Shield className="w-3 h-3" />
         </motion.div>
-      </motion.div>
-    </AnimatePresence>
+      </DialogContent>
+    </Dialog>
   );
 }

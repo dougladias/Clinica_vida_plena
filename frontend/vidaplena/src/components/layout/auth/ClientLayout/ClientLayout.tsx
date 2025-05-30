@@ -49,13 +49,13 @@ export default function ClientLayout({
 
   // Durante SSR ou primeira renderização no cliente
   if (!isClient) {
-    return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100"></div>;
+    return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950"></div>;
   }
 
   // Para rotas públicas (auth, páginas de erro, etc) - sem header/sidebar
   if (isPublicRoute) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen dark:bg-slate-900">
         {children}
       </div>
     );
@@ -64,10 +64,10 @@ export default function ClientLayout({
   // Mostra loading enquanto valida token
   if (isValidating) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-slate-600">Verificando autenticação...</p>
+          <p className="text-slate-600 dark:text-slate-300">Verificando autenticação...</p>
         </div>
       </div>
     );
@@ -75,15 +75,16 @@ export default function ClientLayout({
 
   // Layout completo para usuários autenticados
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+     
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
       <Header />
-      <div className="flex flex-1 mt-[72px]"> {/* Adicionando margin-top para compensar o header */}
-        <Sidebar />
-        <main className="flex-1 lg:ml-64 p-4 md:p-6 flex justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex flex-1 mt-[72px]"> 
+        <Sidebar />        
+        <main className="flex-1 lg:ml-64 p-4 md:p-6 flex justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 transition-colors duration-300">
           <div className="w-full max-w-[1800px]">
             {children}
-          </div>
-        </main>
+          </div>        
+        </main>        
       </div>
     </div>
   );
