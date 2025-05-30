@@ -4,37 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { api } from '@/services/api';
 import { cookies } from 'next/headers';
-
-// Interface para representar os dados de uma consulta
-export interface ConsultationDoctor {
-  id: string;
-  name: string;
-  specialty?: string;
-  crm?: string;
-  email?: string;
-  phone?: string;
-}
-
-export interface ConsultationPatient {
-  id: string;
-  name: string;
-  cpf?: string;
-  birthdate?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-}
-
-export interface Consultation {
-  id: string;
-  date: string;
-  time: string;
-  doctor_id: string;
-  patient_id: string;
-  status: string;
-  doctor?: ConsultationDoctor;
-  patient?: ConsultationPatient;
-}
+import { Consultation, ConsultationDoctor, ConsultationPatient, ApiResponse } from '@/types/consultation.type';
 
 // Função para obter o token de autenticação
 async function getAuthToken(): Promise<string> {
@@ -48,8 +18,8 @@ async function getAuthToken(): Promise<string> {
   return token;
 }
 
-// CORREÇÃO: Buscar todas as consultas com normalização de datas
-export async function getConsultations(filters?: { doctor_id?: string; patient_id?: string; date?: string }) {
+// Buscar todas as consultas com normalização de datas
+export async function getConsultations(filters?: { doctor_id?: string; patient_id?: string; date?: string }): Promise<Consultation[]> {
   try {
     const token = await getAuthToken();
     
@@ -60,7 +30,7 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
       if (filters.doctor_id) params.append('doctor_id', filters.doctor_id);
       if (filters.patient_id) params.append('patient_id', filters.patient_id);
       
-      // CORREÇÃO: Manter a data no formato original
+      // Manter a data no formato original
       if (filters.date) {
         const dateObj = new Date(filters.date + 'T00:00:00');
         if (!isNaN(dateObj.getTime())) {
@@ -87,7 +57,7 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
       date: string; 
     }
     
-    // CORREÇÃO: Normalizar datas na resposta para evitar problemas de timezone
+    // Normalizar datas na resposta para evitar problemas de timezone
     const consultations = response.data.map((consultation: ApiConsultation) => ({
       ...consultation,
       // Extrair apenas a parte da data (YYYY-MM-DD) ignorando timezone
@@ -109,7 +79,7 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
 }
 
 // Criar consulta
-export async function handleCreateConsultation(formData: FormData) {
+export async function handleCreateConsultation(formData: FormData): Promise<ApiResponse> {
   const date = formData.get("date") as string;
   const time = formData.get("time") as string;
   const doctor_id = formData.get("doctor_id") as string;
@@ -155,7 +125,7 @@ export async function handleCreateConsultation(formData: FormData) {
 }
 
 // Atualizar consulta
-export async function handleUpdateConsultation(formData: FormData) {
+export async function handleUpdateConsultation(formData: FormData): Promise<ApiResponse> {
   const id = formData.get("id") as string;
   const date = formData.get("date") as string;
   const time = formData.get("time") as string;
@@ -210,7 +180,7 @@ export async function handleUpdateConsultation(formData: FormData) {
 }
 
 // Deletar consulta
-export async function handleDeleteConsultation(id: string) {
+export async function handleDeleteConsultation(id: string): Promise<ApiResponse> {
   if (!id) {
     return { error: "ID é obrigatório" };
   }
@@ -244,7 +214,7 @@ export async function handleDeleteConsultation(id: string) {
 }
 
 // Buscar médicos para o dropdown
-export async function getDoctors() {
+export async function getDoctors(): Promise<ConsultationDoctor[]> {
   try {
     const token = await getAuthToken();
     
@@ -262,7 +232,7 @@ export async function getDoctors() {
 }
 
 // Buscar pacientes para o dropdown
-export async function getPatients() {
+export async function getPatients(): Promise<ConsultationPatient[]> {
   try {
     const token = await getAuthToken();
     

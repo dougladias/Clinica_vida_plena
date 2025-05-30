@@ -26,12 +26,6 @@ Sistema completo de gerenciamento clínica e consultorio médico desenvolvido co
 
 - ( Abra o Terminal Bash ou qualquer outro terminal com autorização para usar node.js )
 
-- git clone <url-do-repositorio>
-
-- cd PROJECT_BANCO_DADOS
-
-- code . (Para abrir o projeto no vs Code)
-
 2. **Instale as dependências do Backend**
 
 - ( Abra o Terminal do vs code na Pasta Backend )
@@ -40,7 +34,7 @@ Sistema completo de gerenciamento clínica e consultorio médico desenvolvido co
 
 3. **Configure as variáveis de ambiente**
 
-- ( Criar um arquivo chamado *** .env *** na pasta raiz do backend e colocar as variáveis de ambiente )
+- ( Criar um arquivo chamado *** .env *** na pasta raiz do backend e coloque as variáveis de ambiente )
 
 ### Comunicação com o Banco de dados DATABASE_URL
 ### mude a Senha e o nome do banco de dados conforme o seu ou crie a um banco de dados
@@ -67,12 +61,11 @@ JWT_SECRET=875ddfd6c2668d2a4f85ea19ab3c1b82
 
 - npx prisma migrate dev
 
-5. **Gere o cliente Prisma**
+5. **Gere o clientPrisma**
 
 - ( No mesmo terminal do Passo 4 Digite o comando para gerar as tabelas do projeto )
 
 - npx prisma generate
-
 
 
 6. **Inicie o servidor do Backend**

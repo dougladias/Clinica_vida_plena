@@ -56,6 +56,7 @@ export default function DoctorPage() {
     }
   };
 
+  // Variantes de animação para itens individuais
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -65,6 +66,7 @@ export default function DoctorPage() {
     }
   };
 
+  // Variantes de animação para elementos flutuantes
   const floatingVariants = {
     animate: {
       y: ['-5%', '5%', '-5%'],
@@ -87,6 +89,7 @@ export default function DoctorPage() {
     loadData();
   }, []);
 
+  // Função para carregar dados dos médicos e estatísticas
   const loadData = async () => {
     setLoading(true);
     try {
@@ -95,6 +98,7 @@ export default function DoctorPage() {
         getDoctorStats()
       ]);
 
+      // Verifica se os dados foram carregados corretamente
       setMedicos(medicosData);
       if (statsData) {
         setStats(statsData);
@@ -109,6 +113,7 @@ export default function DoctorPage() {
         });
       }
 
+      // Limpar erros anteriores
       setError(null);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -125,23 +130,27 @@ export default function DoctorPage() {
     setRefreshing(false);
   };
 
+  // Handler para adicionar, editar e excluir médicos
   const handleAdd = () => {
     setSelectedMedico(null);
     setModalMode('create');
     setShowModal(true);
   };
 
+  // Handler para editar médico
   const handleEdit = (medico: Medico) => {
     setSelectedMedico(medico);
     setModalMode('edit');
     setShowModal(true);
   };
 
+  // Handler para excluir médico
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este médico?')) {
       return;
     }
 
+    // Chama a função de exclusão
     try {
       const result = await handleDeleteDoctor(id);
       if (result?.error) {
@@ -170,6 +179,7 @@ export default function DoctorPage() {
         email: formData.email
       };
       
+      // Chama a função de criação
       const result = await handleCreateDoctor(createData);
       if (!result.error) {
         await loadData();
@@ -185,6 +195,7 @@ export default function DoctorPage() {
         email: formData.email
       };
       
+      // Chama a função de atualização
       const result = await handleUpdateDoctor(updateData);
       if (!result.error) {
         await loadData();
@@ -207,10 +218,12 @@ export default function DoctorPage() {
     { left: '40%', top: '30%', size: 160 }
   ];
 
+  // Verifica se o componente está montado antes de renderizar
   if (!isMounted) {
-    return null; // Evita problemas de hidratação durante SSR
+    return null; 
   }
 
+  // Renderiza o componente principal
   return (
     <motion.div
       variants={containerVariants}
@@ -253,6 +266,7 @@ export default function DoctorPage() {
           subtitle="Gerencie o corpo médico da clínica" 
         />
         
+        {/* Botão de adicionar médico */}
         <SearchBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
