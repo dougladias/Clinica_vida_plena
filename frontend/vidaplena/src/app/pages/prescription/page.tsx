@@ -31,7 +31,7 @@ import { getDoctors } from '@/server/doctor/useDoctor';
 import { getPatients } from '@/server/patient/usePatient';
 
 import { Patient } from '@/types/patient.type';
-import { Medico } from '@/types/doctor.type';
+import { Doctor } from '@/types/doctor.type'; 
 import { Prescription } from '@/types/prescription.type';
 
 // Componentes UI
@@ -55,7 +55,7 @@ interface PrescriptionStats {
   uniquePatients: number;
 }
 
-// Interface para os dados do formulário - adaptada para corresponder ao AddMedicationDTO
+// Interface alinhada com o backend
 interface MedicationFormData {
   name: string;
   dosage: string;
@@ -108,7 +108,7 @@ const floatingVariants = {
 export default function PrescriptionPage() {
   // Estados
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]); // Corrigido: doctors em vez de medicos
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,7 +162,7 @@ export default function PrescriptionPage() {
 
       // Atualizar estados
       setPrescriptions(validPrescriptions);
-      setMedicos(validDoctors);
+      setDoctors(validDoctors); // Corrigido
       setPatients(validPatients);
 
       // Calcular estatísticas
@@ -180,9 +180,11 @@ export default function PrescriptionPage() {
         total + (prescription.medications?.length || 0), 0
       );
 
-      // Usando patient_id e doctor_id que estão disponíveis diretamente na prescrição (conforme o tipo)
+      // Corrigido: Usar consultation para acessar patient_id e doctor_id
       const uniquePatients = new Set(
-        validPrescriptions.map((prescription: Prescription) => prescription.patient_id).filter(Boolean)
+        validPrescriptions
+          .map((prescription: Prescription) => prescription.consultation?.patient?.id)
+          .filter(Boolean)
       ).size;
 
       setStats({
@@ -254,22 +256,41 @@ export default function PrescriptionPage() {
     loadData();
   };
 
-  // Funções de utilidade
-  const getPatientById = (id: string): Patient | undefined => {
-    if (!id) return undefined;
-    return patients.find(patient => patient.id === id);
+  // Funções de utilidade usando consultation
+  const getPatientFromPrescription = (prescription: Prescription): Patient | undefined => {
+    // Primeiro tenta pelo relationship direto
+    if (prescription.consultation?.patient) {
+      return prescription.consultation.patient as Patient;
+    }
+    
+    // Se não tiver, busca pelo ID na lista de pacientes
+    const patientId = prescription.consultation?.patient?.id;
+    if (patientId) {
+      return patients.find(patient => patient.id === patientId);
+    }
+    
+    return undefined;
   };
 
-  const getDoctorById = (id: string): Medico | undefined => {
-    if (!id) return undefined;
-    return medicos.find(medico => medico.id === id);
+  const getDoctorFromPrescription = (prescription: Prescription): Doctor | undefined => {
+    // Primeiro tenta pelo relationship direto
+    if (prescription.consultation?.doctor) {
+      return prescription.consultation.doctor as Doctor;
+    }
+    
+    // Se não tiver, busca pelo ID na lista de médicos
+    const doctorId = prescription.consultation?.doctor?.id;
+    if (doctorId) {
+      return doctors.find(doctor => doctor.id === doctorId);
+    }
+    
+    return undefined;
   };
 
-  // Filtrar receitas
+  // Filtrar receitas usando consultation
   const filteredPrescriptions = prescriptions.filter((prescription: Prescription) => {
-    // Buscar o paciente e médico diretamente pelo ID na prescrição
-    const patient = getPatientById(prescription.patient_id);
-    const doctor = getDoctorById(prescription.doctor_id);
+    const patient = getPatientFromPrescription(prescription);
+    const doctor = getDoctorFromPrescription(prescription);
 
     const matchesSearch = !searchTerm || 
       (patient?.name && patient.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -283,7 +304,7 @@ export default function PrescriptionPage() {
       );
 
     const matchesDate = !dateFilter || 
-      (prescription.date && prescription.date.toString().split('T')[0] === dateFilter);
+      (prescription.consultation?.date && prescription.consultation.date.toString().split('T')[0] === dateFilter);
 
     return matchesSearch && matchesDoctor && matchesMedication && matchesDate;
   });
@@ -328,12 +349,11 @@ export default function PrescriptionPage() {
     setError('');
 
     try {
-      // Enviando apenas os dados presentes no AddMedicationDTO
+      // Usar instructions em vez de frequency/duration conforme o type
       const result = await handleAddMedication(selectedPrescription.id, {
         name: formData.name,
         dosage: formData.dosage,
-        frequency: formData.frequency,
-        duration: formData.duration
+        instructions: `${formData.frequency} por ${formData.duration}` // Combinar em instructions
       });
 
       if (result?.error) {
@@ -567,9 +587,9 @@ export default function PrescriptionPage() {
         ) : filteredPrescriptions.length > 0 ? (
           <div className="space-y-4">
             {filteredPrescriptions.map((prescription: Prescription, index: number) => {
-              // Buscar o paciente e médico diretamente pelos IDs na prescrição
-              const patient = getPatientById(prescription.patient_id);
-              const doctor = getDoctorById(prescription.doctor_id);
+              // Usar as funções helper
+              const patient = getPatientFromPrescription(prescription);
+              const doctor = getDoctorFromPrescription(prescription);
               const medications = prescription.medications || [];
               
               return (
@@ -594,7 +614,7 @@ export default function PrescriptionPage() {
                         {medications.length} medicamento{medications.length !== 1 ? 's' : ''}
                       </p>
                       <div className="flex items-center space-x-4 text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        <span>{prescription.date ? new Date(prescription.date).toLocaleDateString('pt-BR') : 'Data desconhecida'}</span>
+                        <span>{prescription.consultation?.date ? new Date(prescription.consultation.date).toLocaleDateString('pt-BR') : 'Data desconhecida'}</span>
                       </div>
                     </div>
                   </div>
@@ -651,7 +671,7 @@ export default function PrescriptionPage() {
         )}
       </motion.div>
 
-      {/* Seção de prescrições recentes - corrigido para usar recentPrescriptions */}
+      {/* Seção de prescrições recentes */}
       <motion.div 
         variants={itemVariants} 
         className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700 mt-8"
@@ -663,7 +683,7 @@ export default function PrescriptionPage() {
         {recentPrescriptions.length > 0 ? (
           <div className="space-y-3">
             {recentPrescriptions.map((prescription) => {
-              const patient = getPatientById(prescription.patient_id);
+              const patient = getPatientFromPrescription(prescription);
               
               return (
                 <div 
@@ -675,7 +695,7 @@ export default function PrescriptionPage() {
                     <div>
                       <p className="font-medium text-slate-800 dark:text-slate-200">{patient?.name || 'Paciente desconhecido'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {prescription.date ? new Date(prescription.date).toLocaleDateString('pt-BR') : 'Data desconhecida'}
+                        {prescription.consultation?.date ? new Date(prescription.consultation.date).toLocaleDateString('pt-BR') : 'Data desconhecida'}
                       </p>
                     </div>
                     <Badge variant="outline" className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
@@ -717,13 +737,13 @@ export default function PrescriptionPage() {
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Paciente</label>
                     <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                      {selectedPrescription ? getPatientById(selectedPrescription.patient_id)?.name || 'Não encontrado' : 'N/A'}
+                      {selectedPrescription ? getPatientFromPrescription(selectedPrescription)?.name || 'Não encontrado' : 'N/A'}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Médico</label>
                     <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                      {selectedPrescription ? getDoctorById(selectedPrescription.doctor_id)?.name || 'Não encontrado' : 'N/A'}
+                      {selectedPrescription ? getDoctorFromPrescription(selectedPrescription)?.name || 'Não encontrado' : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -732,20 +752,18 @@ export default function PrescriptionPage() {
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
                   <label className="text-sm font-medium text-slate-600 dark:text-emerald-200">Data da Receita</label>
                   <p className="text-lg font-semibold text-slate-800 dark:text-emerald-300">
-                    {selectedPrescription?.date ? 
-                      new Date(selectedPrescription.date).toLocaleDateString('pt-BR') : 'Não encontrada'}
+                    {selectedPrescription?.consultation?.date ? 
+                      new Date(selectedPrescription.consultation.date).toLocaleDateString('pt-BR') : 'Não encontrada'}
                   </p>
                 </div>
 
-                {/* Notas adicionais */}
-                {selectedPrescription?.notes && (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <label className="text-sm font-medium text-slate-600 dark:text-blue-200">Observações</label>
-                    <p className="text-slate-800 dark:text-blue-300">
-                      {selectedPrescription.notes}
-                    </p>
-                  </div>
-                )}
+                {/* Informações adicionais da consulta */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <label className="text-sm font-medium text-slate-600 dark:text-blue-200">Informações da Consulta</label>
+                  <p className="text-slate-800 dark:text-blue-300">
+                    {selectedPrescription?.consultation?.time ? `Horário: ${selectedPrescription.consultation.time}` : 'Sem informações adicionais'}
+                  </p>
+                </div>
 
                 {/* Medicamentos */}
                 <div>
@@ -762,8 +780,7 @@ export default function PrescriptionPage() {
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-slate-800 dark:text-emerald-200 mb-1">{medication.name} - {medication.dosage}</p>
-                              <p className="text-sm text-slate-600 dark:text-emerald-300 mb-1"><strong>Frequência:</strong> {medication.frequency}</p>
-                              <p className="text-sm text-slate-600 dark:text-emerald-300"><strong>Duração:</strong> {medication.duration}</p>
+                              <p className="text-sm text-slate-600 dark:text-emerald-300 mb-1">{medication.instructions || 'Sem instruções específicas'}</p>
                             </div>
                           </div>
                           {/* Botão para remover medicamento */}
@@ -822,10 +839,10 @@ export default function PrescriptionPage() {
                 {/* Informações da receita */}
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800">
                   <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-2">
-                    Receita: {selectedPrescription && getPatientById(selectedPrescription.patient_id)?.name || 'Paciente não encontrado'}
+                    Receita: {selectedPrescription && getPatientFromPrescription(selectedPrescription)?.name || 'Paciente não encontrado'}
                   </h4>
                   <p className="text-sm text-emerald-600 dark:text-emerald-300">
-                    Dr(a). {selectedPrescription && getDoctorById(selectedPrescription.doctor_id)?.name || 'Médico não encontrado'}
+                    Dr(a). {selectedPrescription && getDoctorFromPrescription(selectedPrescription)?.name || 'Médico não encontrado'}
                   </p>
                 </div>
 
@@ -961,4 +978,3 @@ export default function PrescriptionPage() {
     </motion.div>
   );
 }
-

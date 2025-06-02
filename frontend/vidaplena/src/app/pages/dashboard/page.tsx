@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
@@ -10,167 +10,227 @@ import {
   Plus,
   Clock,
   ChevronRight,
-  FileText  
+  FileText,  
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
-interface Medico {
-  id: number;
-  nome: string;
-  crm: string;
-  especialidade: string;
-  telefone: string;
-  email: string;
-}
+// Importações de server actions
+import { getConsultations } from '@/server/consultation/useConsultation';
+import { getDoctors } from '@/server/doctor/useDoctor';
+import { getPatients } from '@/server/patient/usePatient';
+import { getPrescriptions } from '@/server/prescription/usePrescription';
+import { getMedicalRecords } from '@/server/medicalRecord/useMedicalRecord';
 
-interface Paciente {
-  id: number;
-  nome: string;
-  cpf: string;
-  nascimento: string;
-  endereco: string;
-  telefone: string;
-}
+// Importações de tipos
+import { Doctor } from '@/types/doctor.type';
+import { Patient } from '@/types/patient.type';
+import { Consultation } from '@/types/consultation.type';
+import { Prescription } from '@/types/prescription.type';
+import { MedicalRecord } from '@/types/medicalRecord.type';
 
-interface Consulta {
-  id: number;
-  data: string;
-  hora: string;
-  medicoId: number;
-  pacienteId: number;
-  status: string;
-}
-
-interface Receita {
-  id: number;
-  consultaId: number;
-  medicamentos: string;
-  instrucoes: string;
-  data: string;
-}
+// Componentes UI
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
+import { Alert } from '@/components/ui/alert';
 
 interface DashboardProps {
-  consultas: Consulta[];
-  pacientes: Paciente[];
-  medicos: Medico[];
-  receitas: Receita[];
+  consultations: Consultation[];
+  patients: Patient[];
+  doctors: Doctor[];
+  prescriptions: Prescription[];
+  medicalRecords: MedicalRecord[];
   selectedDate: string;
-  handleAdd: (type: string) => void;
-  getMedicoById: (id: number) => Medico | undefined;
-  getPacienteById: (id: number) => Paciente | undefined;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => Promise<void>;
+  stats: DashboardStats; 
+}
+
+interface DashboardStats {
+  totalConsultations: number;
+  todayConsultations: number;
+  tomorrowConsultations: number;
+  completedConsultations: number;
+  inProgressConsultations: number;
+  totalPatients: number;
+  totalDoctors: number;
+  specialties: number;
+  totalPrescriptions: number;
+  monthlyPrescriptions: number;
+  totalMedicalRecords: number;
 }
 
 export default function DashboardPage() {
-  // Dados mock ou estado inicial
-  const [consultas, setConsultas] = useState<Consulta[]>([]);
-  const [pacientes, setPacientes] = useState<Paciente[]>([]);
-  const [medicos, setMedicos] = useState<Medico[]>([]);
-  const [receitas, setReceitas] = useState<Receita[]>([]);
+  // Estados para armazenar dados
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalConsultations: 0,
+    todayConsultations: 0,
+    tomorrowConsultations: 0,
+    completedConsultations: 0,
+    inProgressConsultations: 0,
+    totalPatients: 0,
+    totalDoctors: 0,
+    specialties: 0,
+    totalPrescriptions: 0,
+    monthlyPrescriptions: 0,
+    totalMedicalRecords: 0
+  });
+  
   const [selectedDate] = useState(
     new Date().toISOString().split('T')[0]
   );
 
-  // Simular carregamento de dados ou conectar à API real posteriormente
-  useEffect(() => {
-    // Dados de exemplo
-    const mockConsultas: Consulta[] = [
-      {
-        id: 1,
-        data: new Date().toISOString().split('T')[0], // Hoje
-        hora: "14:30",
-        medicoId: 1,
-        pacienteId: 1,
-        status: "Agendada"
-      },
-      // Adicione mais consultas se desejar
-    ];
+  // Carregar dados da API
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [consultationsData, patientsData, doctorsData, prescriptionsData, medicalRecordsData] = await Promise.all([
+        getConsultations(),
+        getPatients(),
+        getDoctors(),
+        getPrescriptions(),
+        getMedicalRecords()
+      ]);
 
-    const mockPacientes: Paciente[] = [
-      {
-        id: 1,
-        nome: "Maria Silva",
-        cpf: "123.456.789-00",
-        nascimento: "1985-05-15",
-        endereco: "Rua das Flores, 123",
-        telefone: "(11) 98765-4321"
-      },
-      // Adicione mais pacientes se desejar
-    ];
+      console.log('Dados carregados:', {
+        consultations: Array.isArray(consultationsData) ? consultationsData.length : 0,
+        patients: Array.isArray(patientsData) ? patientsData.length : 0,
+        doctors: Array.isArray(doctorsData) ? doctorsData.length : 0,
+        prescriptions: Array.isArray(prescriptionsData) ? prescriptionsData.length : 0,
+        medicalRecords: Array.isArray(medicalRecordsData) ? medicalRecordsData.length : 0
+      });
 
-    const mockMedicos: Medico[] = [
-      {
-        id: 1,
-        nome: "Dr. Carlos Oliveira",
-        crm: "CRM/SP 12345",
-        especialidade: "Cardiologia",
-        telefone: "(11) 99876-5432",
-        email: "dr.carlos@clinica.com"
-      },
-      // Adicione mais médicos se desejar
-    ];
+      // Garantir que os dados são válidos
+      const validConsultations = Array.isArray(consultationsData) ? consultationsData : [];
+      const validPatients = Array.isArray(patientsData) ? patientsData : [];
+      const validDoctors = Array.isArray(doctorsData) ? doctorsData : [];
+      const validPrescriptions = Array.isArray(prescriptionsData) ? prescriptionsData : [];
+      const validMedicalRecords = Array.isArray(medicalRecordsData) ? medicalRecordsData : [];
 
-    const mockReceitas: Receita[] = [
-      {
-        id: 1,
-        consultaId: 1,
-        medicamentos: "Paracetamol 500mg",
-        instrucoes: "Tomar 1 comprimido a cada 8 horas",
-        data: new Date().toISOString().split('T')[0]
-      },
-      // Adicione mais receitas se desejar
-    ];
+      // Atualizar estados
+      setConsultations(validConsultations);
+      setPatients(validPatients);
+      setDoctors(validDoctors);
+      setPrescriptions(validPrescriptions);
+      setMedicalRecords(validMedicalRecords);
 
-    setConsultas(mockConsultas);
-    setPacientes(mockPacientes);
-    setMedicos(mockMedicos);
-    setReceitas(mockReceitas);
+      // Calcular estatísticas
+      const today = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      // Consultas de hoje
+      const todayConsultations = validConsultations.filter(
+        c => c.date?.split('T')[0] === today
+      );
+      
+      // Consultas de amanhã
+      const tomorrowConsultations = validConsultations.filter(
+        c => c.date?.split('T')[0] === tomorrowStr
+      );
+
+      // Consultas completadas e em andamento
+      const completedConsultations = validConsultations.filter(
+        c => c.status === 'Concluída'
+      );
+      
+      const inProgressConsultations = validConsultations.filter(
+        c => c.status === 'Em Andamento'
+      );
+
+      // Prescrições do mês atual
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const monthlyPrescriptions = validPrescriptions.filter(p => {
+        if (!p.created_at) return false;
+        const date = new Date(p.created_at);
+        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+      });
+
+      // Especialidades únicas
+      const uniqueSpecialties = new Set(validDoctors.map(d => d.specialty)).size;
+
+      setStats({
+        totalConsultations: validConsultations.length,
+        todayConsultations: todayConsultations.length,
+        tomorrowConsultations: tomorrowConsultations.length,
+        completedConsultations: completedConsultations.length,
+        inProgressConsultations: inProgressConsultations.length,
+        totalPatients: validPatients.length,
+        totalDoctors: validDoctors.length,
+        specialties: uniqueSpecialties,
+        totalPrescriptions: validPrescriptions.length,
+        monthlyPrescriptions: monthlyPrescriptions.length,
+        totalMedicalRecords: validMedicalRecords.length
+      });
+
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
+      setError('Erro ao carregar dados do dashboard. Por favor, tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Funções de utilidade
-  const getMedicoById = (id: number) => {
-    return medicos.find(medico => medico.id === id);
-  };
-
-  const getPacienteById = (id: number) => {
-    return pacientes.find(paciente => paciente.id === id);
-  };
-
-  const handleAdd = (type: string) => {
-    console.log(`Adicionar novo ${type}`);
-    // Implementar lógica para adicionar novo item
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Renderizar o componente Dashboard com as props necessárias
   return (
     <Dashboard 
-      consultas={consultas}
-      pacientes={pacientes}
-      medicos={medicos}
-      receitas={receitas}
+      consultations={consultations}
+      patients={patients}
+      doctors={doctors}
+      prescriptions={prescriptions}
+      medicalRecords={medicalRecords}
       selectedDate={selectedDate}
-      handleAdd={handleAdd}
-      getMedicoById={getMedicoById}
-      getPacienteById={getPacienteById}
+      loading={loading}
+      error={error}
+      onRefresh={loadData}
+      stats={stats}
     />
   );
 }
 
-// O componente Dashboard existente permanece o mesmo
+// O componente Dashboard
 const Dashboard: React.FC<DashboardProps> = ({ 
-  consultas, 
-  pacientes, 
-  medicos, 
-  receitas, 
-  selectedDate,    
-  getMedicoById, 
-  getPacienteById 
+  consultations, 
+  patients, 
+  doctors, 
+  prescriptions,
+  medicalRecords,
+  selectedDate,
+  loading,
+  error,
+  onRefresh,
+  stats
 }) => {
-  const consultasHoje = consultas.filter(c => c.data === selectedDate);
-  const consultasAmanha = consultas.filter(c => {
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    return c.data === amanha.toISOString().split('T')[0];
-  });
+  const consultationsToday = consultations.filter(c => {
+    if (!c.date) return false;
+    return c.date.split('T')[0] === selectedDate;
+  });  
+  
+  const completedConsultations = stats.completedConsultations;
+  const inProgressConsultations = stats.inProgressConsultations;
+  const specialties = stats.specialties;
+  
+  const monthlyPrescriptions = stats.monthlyPrescriptions;
 
+  // Variantes de animação
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { 
@@ -188,6 +248,87 @@ const Dashboard: React.FC<DashboardProps> = ({
     visible: { opacity: 1, x: 0 }
   };
 
+  // Atividades recentes (combinando consultas, prontuários e prescrições)
+  const getRecentActivities = () => {
+    const activities = [
+      ...prescriptions.map(p => ({
+        type: 'prescription',
+        date: p.created_at || '',
+        title: 'Receita emitida',
+        entity: p.consultation?.patient?.name || 'Paciente',
+      })),
+      ...medicalRecords.map(mr => ({
+        type: 'medicalRecord',
+        date: mr.created_at || '',
+        title: 'Prontuário atualizado',
+        entity: (mr as MedicalRecord & { patient?: Patient }).patient?.name || 'Paciente',
+      })),
+      ...consultations.map(c => ({
+        type: 'consultation',
+        date: c.created_at || '',
+        title: 'Consulta agendada',
+        entity: c.patient?.name || 'Paciente',
+      }))
+    ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+
+    return activities;
+  };
+
+  const activities = getRecentActivities();
+
+  // Função para formatar o tempo relativo
+  const getRelativeTime = (dateString: string) => {
+    if (!dateString) return 'Data desconhecida';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.round(diffMs / 60000);
+    const diffHours = Math.round(diffMins / 60);
+    const diffDays = Math.round(diffHours / 24);
+
+    if (diffMins < 60) return `há ${diffMins} min`;
+    if (diffHours < 24) return `há ${diffHours} h`;
+    return `há ${diffDays} dias`;
+  };
+
+  // Função para obter o ícone da atividade
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'prescription':
+        return <Receipt className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
+      case 'medicalRecord':
+        return <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+      case 'consultation':
+        return <Calendar className="w-4 h-4 text-green-600 dark:text-green-400" />;
+      default:
+        return <Plus className="w-4 h-4 text-green-600 dark:text-green-400" />;
+    }
+  };
+
+  // Função para obter a cor do background do ícone
+  const getActivityIconBg = (type: string) => {
+    switch (type) {
+      case 'prescription': return 'bg-purple-100 dark:bg-purple-900/30';
+      case 'medicalRecord': return 'bg-blue-100 dark:bg-blue-900/30';
+      case 'consultation': return 'bg-green-100 dark:bg-green-900/30';
+      default: return 'bg-green-100 dark:bg-green-900/30';
+    }
+  };
+
+  // Função para determinar a variante do badge com base no status
+  const getStatusVariant = (status: string | undefined): "default" | "destructive" | "secondary" | "outline" | null | undefined => {
+    switch (status) {
+      case 'Agendada': return 'default';
+      case 'Em Andamento': return 'secondary';
+      case 'Concluída': return 'default';
+      case 'Cancelada': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
   return (
     <motion.div
       key="dashboard"
@@ -197,195 +338,315 @@ const Dashboard: React.FC<DashboardProps> = ({
       exit="hidden"
       className="space-y-8"
     >   
-      
+      {/* Mensagem de erro */}
+      {error && (
+        <Alert variant="destructive" className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5" />
+            <div>
+              <p className="font-medium">Erro ao carregar dados</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onRefresh}
+            className="ml-auto"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Tentar novamente
+          </Button>
+        </Alert>
+      )}
 
       {/* Cards de estatísticas */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          className="p-6 rounded-2xl shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <Calendar className="w-8 h-8 opacity-80" />
-              <span className="text-xs opacity-75 bg-white bg-opacity-20 px-2 py-1 rounded-full">Hoje</span>
-            </div>
-            <p className="text-sm opacity-90 mb-1">Consultas Agendadas</p>
-            <p className="text-3xl font-bold">{consultasHoje.length}</p>
-            <p className="text-xs opacity-75 mt-2">
-              {consultasAmanha.length} amanhã
-            </p>
-          </div>
+        {/* Card 1 - Consultas */}
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="border-l-4 border-l-blue-500 shadow-md dark:bg-slate-800">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Consultas Agendadas</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-3xl font-bold">{stats.todayConsultations}</p>
+                      <Badge variant="outline" className="text-blue-500 border-blue-200 dark:border-blue-800">
+                        Hoje
+                      </Badge>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {stats.tomorrowConsultations} amanhã
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
         
-        <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          className="p-6 rounded-2xl shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <Users className="w-8 h-8 opacity-80" />
-              <span className="text-xs opacity-75 bg-white bg-opacity-20 px-2 py-1 rounded-full">Total</span>
-            </div>
-            <p className="text-sm opacity-90 mb-1">Pacientes Ativos</p>
-            <p className="text-3xl font-bold">{pacientes.length}</p>
-            <p className="text-xs opacity-75 mt-2">Cadastrados</p>
-          </div>
+        {/* Card 2 - Pacientes */}
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="border-l-4 border-l-green-500 shadow-md dark:bg-slate-800">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Pacientes Ativos</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-3xl font-bold">{patients.length}</p>
+                      <Badge variant="outline" className="text-green-500 border-green-200 dark:border-green-800">
+                        Total
+                      </Badge>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Cadastrados no sistema
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-green-500 dark:text-green-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
         
-        <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          className="p-6 rounded-2xl shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <UserCheck className="w-8 h-8 opacity-80" />
-              <span className="text-xs opacity-75 bg-white bg-opacity-20 px-2 py-1 rounded-full">Ativo</span>
-            </div>
-            <p className="text-sm opacity-90 mb-1">Médicos Disponíveis</p>
-            <p className="text-3xl font-bold">{medicos.length}</p>
-            <p className="text-xs opacity-75 mt-2">Especialidades</p>
-          </div>
+        {/* Card 3 - Médicos */}
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="border-l-4 border-l-purple-500 shadow-md dark:bg-slate-800">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Médicos Disponíveis</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-3xl font-bold">{doctors.length}</p>
+                      <Badge variant="outline" className="text-purple-500 border-purple-200 dark:border-purple-800">
+                        Ativo
+                      </Badge>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Especialidades: {specialties}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
         
-        <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          className="p-6 rounded-2xl shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <Receipt className="w-8 h-8 opacity-80" />
-              <span className="text-xs opacity-75 bg-white bg-opacity-20 px-2 py-1 rounded-full">Mês</span>
-            </div>
-            <p className="text-sm opacity-90 mb-1">Receitas Emitidas</p>
-            <p className="text-3xl font-bold">{receitas.length}</p>
-            <p className="text-xs opacity-75 mt-2">Este mês</p>
-          </div>
+        {/* Card 4 - Receitas */}
+        <motion.div whileHover={{ y: -4 }}>
+          <Card className="border-l-4 border-l-orange-500 shadow-md dark:bg-slate-800">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Receitas Emitidas</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-3xl font-bold">{monthlyPrescriptions}</p>
+                      <Badge variant="outline" className="text-orange-500 border-orange-200 dark:border-orange-800">
+                        Mês
+                      </Badge>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Total: {prescriptions.length}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                  <Receipt className="h-5 w-5 text-orange-500 dark:text-orange-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </motion.div>
 
       {/* Área principal com consultas e atividades */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Consultas de hoje */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-xl font-semibold text-slate-800">Consultas de Hoje</h3>
-              <p className="text-sm text-slate-500">{consultasHoje.length} consultas agendadas</p>
-            </div>
-            <motion.button
-              whileHover={{ x: 5 }}
-              className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
-              Ver todas
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </motion.button>
-          </div>
-          
-          {consultasHoje.length > 0 ? (
-            <div className="space-y-4">
-              {consultasHoje.map((consulta, index) => {
-                const medico = getMedicoById(consulta.medicoId);
-                const paciente = getPacienteById(consulta.pacienteId);
-                return (
-                  <motion.div
-                    key={consulta.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    whileHover={{ x: 4, backgroundColor: '#f8fafc' }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-blue-600" />
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+          <Card className="border-t-4 border-t-blue-500 shadow-md dark:bg-slate-800">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-xl">Consultas de Hoje</CardTitle>
+                <CardDescription>
+                  {loading 
+                    ? 'Carregando consultas...' 
+                    : `${consultationsToday.length} consultas agendadas`
+                  }
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" className="gap-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                Ver todas
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <Skeleton className="w-10 h-10 rounded-full" />
+                        <div>
+                          <Skeleton className="h-4 w-[200px] mb-2" />
+                          <Skeleton className="h-3 w-[150px]" />
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-800">{paciente?.nome}</p>
-                        <p className="text-sm text-slate-500">{medico?.nome} • {medico?.especialidade}</p>
+                      <div className="text-right">
+                        <Skeleton className="h-4 w-[60px] mb-2" />
+                        <Skeleton className="h-6 w-[80px]" />
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-slate-800">{consulta.hora}</p>
-                      <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                        consulta.status === 'Agendada' ? 'bg-blue-100 text-blue-800' :
-                        consulta.status === 'Em Andamento' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {consulta.status}
-                      </span>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">Nenhuma consulta agendada para hoje</p>
-            </div>
-          )}
+                  ))}
+                </div>
+              ) : consultationsToday.length > 0 ? (
+                <div className="space-y-4">
+                  {consultationsToday.map((consultation, index) => (
+                    <motion.div
+                      key={consultation.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ x: 2, backgroundColor: 'var(--hover-bg)' }}
+                      style={{ '--hover-bg': 'var(--card-hover)' } as React.CSSProperties & { '--hover-bg': string }}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {consultation.patient?.name || 'Paciente não encontrado'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {consultation.doctor?.name || 'Médico não encontrado'} • 
+                            {consultation.doctor?.specialty || 'Especialidade não especificada'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          {consultation.date 
+                            ? new Date(consultation.date).toLocaleTimeString('pt-BR', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              }) 
+                            : 'Horário não definido'
+                          }
+                        </p>
+                        <Badge variant={getStatusVariant(consultation.status)}>
+                          {consultation.status || 'Sem status'}
+                        </Badge>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground">Nenhuma consulta agendada para hoje</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Atividades recentes */}
         <motion.div variants={itemVariants} className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Atividades Recentes</h3>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-green-600" />
+          <Card className="border-t-4 border-t-purple-500 shadow-md dark:bg-slate-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Atividades Recentes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-start space-x-3">
+                      <Skeleton className="w-8 h-8 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-3/4 mb-2" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Novo paciente cadastrado</p>
-                  <p className="text-xs text-slate-500">Roberto Fernandes - há 2 horas</p>
+              ) : activities.length > 0 ? (
+                <div className="space-y-4">
+                  {activities.map((activity, index) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <div className={`w-8 h-8 ${getActivityIconBg(activity.type)} rounded-full flex items-center justify-center`}>
+                        {getActivityIcon(activity.type)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground">{activity.entity} - {getRelativeTime(activity.date)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-blue-600" />
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-muted-foreground text-sm">Nenhuma atividade recente</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Prontuário atualizado</p>
-                  <p className="text-xs text-slate-500">Maria Silva - há 3 horas</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Receipt className="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Receita emitida</p>
-                  <p className="text-xs text-slate-500">Carlos Oliveira - há 4 horas</p>
-                </div>
-              </div>
-            </div>
-          </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Quick Stats */}
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
-            <h4 className="font-semibold text-slate-800 mb-4">Resumo Rápido</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Consultas Concluídas</span>
-                <span className="font-semibold text-slate-800">{consultas.filter(c => c.status === 'Concluída').length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Em Andamento</span>
-                <span className="font-semibold text-slate-800">{consultas.filter(c => c.status === 'Em Andamento').length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Prontuários</span>
-                <span className="font-semibold text-slate-800">12</span>
-              </div>
-            </div>
-          </div>
+          <Card className="border-t-4 border-t-indigo-500 shadow-md bg-gradient-to-br from-slate-50 to-indigo-50/50 dark:from-slate-800 dark:to-indigo-900/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Resumo Rápido</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center justify-between">
+                      <Skeleton className="h-3 w-1/3" />
+                      <Skeleton className="h-3 w-8" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Consultas Concluídas</span>
+                    <span className="font-semibold">{completedConsultations}</span>
+                  </div>
+                  <Separator className="my-2 opacity-50" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Em Andamento</span>
+                    <span className="font-semibold">{inProgressConsultations}</span>
+                  </div>
+                  <Separator className="my-2 opacity-50" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Prontuários</span>
+                    <span className="font-semibold">{medicalRecords.length}</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     </motion.div>
