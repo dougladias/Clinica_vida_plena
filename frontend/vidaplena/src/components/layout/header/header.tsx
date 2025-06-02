@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {     
   LogOut,
   User
@@ -14,11 +14,23 @@ interface HeaderProps {
   setSearchTerm?: (term: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({   
-}) => {
+const Header: React.FC<HeaderProps> = ({}) => {
   // Estado interno para quando as props não são fornecidas  
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // Estado para controlar se estamos no cliente ou servidor
+  const [mounted, setMounted] = useState(false);
+  // Ref para controlar se é a primeira montagem
+  const isFirstMount = useRef(true);
     
+  // Garantir que a renderização ocorra apenas no cliente
+  useEffect(() => {
+    setMounted(true);
+    // Após o primeiro mount, desativa a animação inicial
+    return () => {
+      isFirstMount.current = false;
+    };
+  }, []);
+
   const handleLogout = (e: React.MouseEvent<HTMLButtonElement>) => {
     // Previne a propagação do evento para o overlay
     e.stopPropagation();
@@ -41,13 +53,11 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  // Não renderiza nada durante o SSR para evitar bugs de hidratação
+  if (!mounted) return null;
+
   return (
-    <motion.header 
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 z-40 fixed top-0 w-full"
-    >
+    <header className="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 z-40 fixed top-0 w-full">
       {/* Container com largura total, mas conteúdo alinhado à direita da sidebar */}
       <div className="flex items-center justify-between h-[72px] px-6 ml-0 lg:ml-64 transition-all duration-300">
         <div className="flex items-center space-x-4">                    
@@ -69,29 +79,31 @@ const Header: React.FC<HeaderProps> = ({
               </div>
             </motion.button>
 
-            {/* Dropdown do usuário */}
-            {showUserMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-2 z-50" // Aumentado o z-index para 50
-              >
-                <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Usuário</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Admin</p>
-                </div>
-                
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
-                  style={{ zIndex: 50 }} // Garantir que o botão esteja em camada superior
+            {/* Dropdown do usuário com AnimatePresence para melhor controle de animação */}
+            <AnimatePresence>
+              {showUserMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10, transition: { duration: 0.2 } }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-2 z-50"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>Sair</span>
-                </button>
-              </motion.div>
-            )}
+                  <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Usuário</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Admin</p>
+                  </div>
+                  
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sair</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -103,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({
           onClick={() => setShowUserMenu(false)}
         />
       )}
-    </motion.header>
+    </header>
   );
 };
 
