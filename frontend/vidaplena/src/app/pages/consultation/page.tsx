@@ -26,7 +26,7 @@ import {
   handleDeleteConsultation,
   getDoctors,
   getPatients
-} from '@/hooks/consultation/useConsultation';
+} from '@/server/consultation/useConsultation';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ConsultationDoctor, ConsultationPatient } from '@/types/consultation.type';
 import { Button } from "@/components/ui/button";

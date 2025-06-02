@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { CreatePrescriptionController } from '../../controllers/prescription/CreatePrescription.controller';
 import { ListPrescriptionsController } from '../../controllers/prescription/ListPrescriptions.controller';
 import { DeletePrescriptionController } from '../../controllers/prescription/DeletePrescription.controller';
-import { AddMedicationController } from '../../controllers/medication/AddMedication.controller';
-import { RemoveMedicationController } from '../../controllers/medication/RemoveMedication.controller';
+import { AddMedicationController } from '../../controllers/prescription/AddMedication.controller';
+import { RemoveMedicationController } from '../../controllers/prescription/RemoveMedication.controller';
 
 const prescriptionRoutes = Router();
 const listPrescriptionsController = new ListPrescriptionsController();

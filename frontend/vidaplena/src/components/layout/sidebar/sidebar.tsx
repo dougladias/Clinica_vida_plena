@@ -37,8 +37,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab: externalActiveTab, setActi
     { id: 'pacientes', label: 'Pacientes', icon: Users, path: '/pages/patient' },
     { id: 'medicos', label: 'Médicos', icon: UserCheck, path: '/pages/doctor' },
     { id: 'consultas', label: 'Consultas', icon: Calendar, path: '/pages/consultation' },
-    { id: 'prontuarios', label: 'Prontuários', icon: FileText, path: '/pages/prescription' },
-    { id: 'receitas', label: 'Receitas', icon: Receipt, path: '/pages/medication' }
+    { id: 'prontuarios', label: 'Prontuários', icon: FileText, path: '/pages/medicalRecord' },
+    { id: 'receitas', label: 'Receitas', icon: Receipt, path: '/pages/prescription' }
   ], []);
   
   // Use effect para sincronizar o activeTab com o pathname atual

@@ -8,7 +8,7 @@ import {
   handleCreateDoctor,
   handleUpdateDoctor,
   handleDeleteDoctor 
-} from '@/hooks/doctor/useDoctor';
+} from '@/server/doctor/useDoctor';
 import { 
   Medico, 
   MedicosStats, 
@@ -17,13 +17,13 @@ import {
 } from '@/types/doctor.type'; 
 
 // Importando componentes
-import { DoctorStats } from '@/components/doctor/DoctorStats';
-import { SearchBar } from '@/components/doctor/SearchBar';
-import { DoctorList } from '@/components/doctor/DoctorList';
-import { SpecialtyList } from '@/components/doctor/SpecialtyList';
-import { DoctorFormModal } from '@/components/doctor/DoctorFormModal';
-import { ErrorBanner } from '@/components/doctor/ErrorBanner';
-import { PageHeader } from '@/components/doctor/PageHeader';
+import { DoctorStats } from '@/components/pages/doctor/DoctorStats';
+import { SearchBar } from '@/components/pages/doctor/SearchBar';
+import { DoctorList } from '@/components/pages/doctor/DoctorList';
+import { SpecialtyList } from '@/components/pages/doctor/SpecialtyList';
+import { DoctorFormModal } from '@/components/pages/doctor/DoctorFormModal';
+import { ErrorBanner } from '@/components/pages/doctor/ErrorBanner';
+import { PageHeader } from '@/components/pages/doctor/PageHeader';
 
 // Página principal do componente de médicos
 export default function DoctorPage() {  

@@ -3,250 +3,199 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  FileText,
-  Plus,
-  Edit,
-  Trash2,
-  Download,
+  Receipt,
+  Plus,  
   Eye,
-  Search,  
+  Search,
   Calendar,
   User,
   Stethoscope,
-  ClipboardList,
-  Activity,
+  Pill,
+  Printer,
   Loader2,
   AlertCircle,
   CheckCircle,
-  Save,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 
+// Importações server actions corretas
 import {
-  getMedicalRecords,
-  handleCreateMedicalRecord,
-  handleUpdateMedicalRecord,
-  handleDeleteMedicalRecord
-} from '@/hooks/prescription/usePrescription';
+  getPrescriptions,
+  handleAddMedication, 
+  handleRemoveMedication  
+} from '@/server/prescription/usePrescription';
 
-import {
-  getConsultations as getApiConsultations,
-  getDoctors as getApiDoctors,
-  getPatients as getApiPatients,
-  ConsultationDoctor,
-  ConsultationPatient,
-  Consultation as ApiConsultation
-} from '@/hooks/consultation/useConsultation';
+// Server actions para médicos e pacientes
+import { getDoctors } from '@/server/doctor/useDoctor';
+import { getPatients } from '@/server/patient/usePatient';
 
-// Interfaces baseadas na sua API
-interface Doctor {
-  id: string;
-  name: string;
-  crm: string;
-  specialty: string;
-  phone: string;
-  email: string;
-}
+import { Patient } from '@/types/patient.type';
+import { Medico } from '@/types/doctor.type';
+import { Prescription } from '@/types/prescription.type';
 
-interface Patient {
-  id: string;
-  name: string;
-  cpf: string;
-  date_birth: string;
-  address: string;
-  phone: string;
-  email: string; // Adicionando email à interface
-}
+// Componentes UI
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
 
-interface Consultation {
-  id: string;
-  date: string;
-  time: string;
-  doctor_id: string;
-  patient_id: string;
-  status: string;
-  doctor?: Doctor;
-  patient?: Patient;
-}
-
-interface MedicalRecord {
-  id: string;
-  consultation_id: string;
-  notes: string;
-  diagnosis: string;
-  created_at: string;
-  updated_at: string;
-  consultation?: {
-    id: string;
-    date: string;
-    time: string;
-    doctor_id: string; // Adicionando doctor_id
-    patient_id: string; // Adicionando patient_id
-    doctor: Doctor;
-    patient: Patient;
-  };
-}
-
-interface MedicalRecordStats {
+interface PrescriptionStats {
   total: number;
   thisMonth: number;
-  completedConsultations: number;
+  totalMedications: number;
   uniquePatients: number;
 }
 
-// Função auxiliar para converter ApiConsultation para Consultation
-function convertApiConsultation(apiConsultation: ApiConsultation): Consultation {
-  // Converter doctor de ConsultationDoctor para Doctor, se existir
-  let doctor: Doctor | undefined = undefined;
-  if (apiConsultation.doctor) {
-    doctor = {
-      id: apiConsultation.doctor.id,
-      name: apiConsultation.doctor.name,
-      specialty: apiConsultation.doctor.specialty || '',
-      crm: apiConsultation.doctor.crm || '',
-      email: apiConsultation.doctor.email || '',
-      phone: apiConsultation.doctor.phone || ''
-    };
-  }
-
-  // Converter patient de ConsultationPatient para Patient, se existir
-  let patient: Patient | undefined = undefined;
-  if (apiConsultation.patient) {
-    patient = {
-      id: apiConsultation.patient.id,
-      name: apiConsultation.patient.name,
-      cpf: apiConsultation.patient.cpf || '',
-      date_birth: apiConsultation.patient.birthdate || '',
-      address: apiConsultation.patient.address || '',
-      phone: apiConsultation.patient.phone || '',
-      email: apiConsultation.patient.email || ''
-    };
-  }
-
-  return {
-    id: apiConsultation.id,
-    date: apiConsultation.date,
-    time: apiConsultation.time,
-    doctor_id: apiConsultation.doctor_id,
-    patient_id: apiConsultation.patient_id,
-    status: apiConsultation.status,
-    doctor,
-    patient
-  };
+// Interface para os dados do formulário - adaptada para corresponder ao AddMedicationDTO
+interface MedicationFormData {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
 }
 
+// Variantes de animação
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: { 
+      staggerChildren: 0.1,
+      duration: 0.6 
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.6 }
+  }
+};
+
+// Elementos de background estilizados
+const backgroundElements = [
+  { left: '5%', top: '15%', size: 200 },
+  { left: '90%', top: '10%', size: 250 },
+  { left: '80%', top: '60%', size: 180 },
+  { left: '20%', top: '80%', size: 220 },
+  { left: '40%', top: '30%', size: 160 }
+];
+
+const floatingVariants = {
+  animate: {
+    y: ['-5%', '5%', '-5%'],
+    rotate: [0, 2, -2, 0],
+    transition: {
+      duration: 6,
+      repeat: Infinity,
+      ease: "easeInOut"
+    }
+  }
+};
+
 export default function PrescriptionPage() {
-  // Estados para gerenciar os dados
-  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  // Estados
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [medicos, setMedicos] = useState<Medico[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [doctorFilter, setDoctorFilter] = useState('');
+  const [medicationFilter, setMedicationFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   
-  const [stats, setStats] = useState<MedicalRecordStats>({
+  // Estados para estatísticas
+  const [stats, setStats] = useState<PrescriptionStats>({
     total: 0,
     thisMonth: 0,
-    completedConsultations: 0,
+    totalMedications: 0,
     uniquePatients: 0
   });
   
+  // Estados para o modal
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
-  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
+  const [modalMode, setModalMode] = useState<'add-medication' | 'view'>('add-medication');
+  const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<MedicationFormData>({
+    name: '',
+    dosage: '',
+    frequency: '',
+    duration: ''
+  });
+  const [success, setSuccess] = useState(false);
 
   // Carregar dados da API
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [recordsData, apiConsultationsData, apiDoctorsData, apiPatientsData] = await Promise.all([
-        getMedicalRecords(),
-        getApiConsultations(),
-        getApiDoctors(),
-        getApiPatients()
+      const [prescriptionsData, doctorsData, patientsData] = await Promise.all([
+        getPrescriptions(),
+        getDoctors(),
+        getPatients()
       ]);
 
-      // Converter dados da API para formatos locais
-      const convertedConsultations = apiConsultationsData.map(convertApiConsultation);
-
-      // Converter doutores da API para o formato local
-      const convertedDoctors = apiDoctorsData.map((apiDoctor: ConsultationDoctor): Doctor => ({
-        id: apiDoctor.id,
-        name: apiDoctor.name,
-        specialty: apiDoctor.specialty || '',
-        crm: apiDoctor.crm || '',
-        email: apiDoctor.email || '',
-        phone: apiDoctor.phone || ''
-      }));
-
-      // Converter pacientes da API para o formato local
-      const convertedPatients = apiPatientsData.map((apiPatient: ConsultationPatient): Patient => ({
-        id: apiPatient.id,
-        name: apiPatient.name,
-        cpf: apiPatient.cpf || '',
-        date_birth: apiPatient.birthdate || '',
-        address: apiPatient.address || '',
-        phone: apiPatient.phone || '',
-        email: apiPatient.email || ''
-      }));
-
       console.log('Dados carregados:', {
-        records: recordsData.length,
-        consultations: convertedConsultations.length,
-        doctors: convertedDoctors.length,
-        patients: convertedPatients.length
+        prescriptions: Array.isArray(prescriptionsData) ? prescriptionsData.length : 0,
+        doctors: Array.isArray(doctorsData) ? doctorsData.length : 0,
+        patients: Array.isArray(patientsData) ? patientsData.length : 0
       });
 
-      setMedicalRecords(recordsData);
-      setConsultations(convertedConsultations);
-      setDoctors(convertedDoctors);
-      setPatients(convertedPatients);
+      // Verificar se os dados são válidos
+      const validPrescriptions = Array.isArray(prescriptionsData) ? prescriptionsData : [];
+      const validDoctors = Array.isArray(doctorsData) ? doctorsData : [];
+      const validPatients = Array.isArray(patientsData) ? patientsData : [];
+
+      // Atualizar estados
+      setPrescriptions(validPrescriptions);
+      setMedicos(validDoctors);
+      setPatients(validPatients);
 
       // Calcular estatísticas
       const today = new Date();
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
 
-      const thisMonthRecords = recordsData.filter((record: MedicalRecord) => {
-        const recordDate = new Date(record.created_at);
-        return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+      const thisMonthPrescriptions = validPrescriptions.filter((prescription: Prescription) => {
+        if (!prescription.created_at) return false;
+        const prescriptionDate = new Date(prescription.created_at);
+        return prescriptionDate.getMonth() === currentMonth && prescriptionDate.getFullYear() === currentYear;
       });
 
-      const completedConsultations = convertedConsultations.filter(
-        (c: Consultation) => c.status === 'Concluída'
+      const totalMedications = validPrescriptions.reduce((total: number, prescription: Prescription) => 
+        total + (prescription.medications?.length || 0), 0
       );
 
-      // Correção da função uniquePatients no loadData
+      // Usando patient_id e doctor_id que estão disponíveis diretamente na prescrição (conforme o tipo)
       const uniquePatients = new Set(
-        recordsData.map((record: MedicalRecord) => {
-          const consultationId = record.consultation_id;
-          const consultation = record.consultation || convertedConsultations.find(c => c.id === consultationId);
-          
-          // Verificar adequadamente se temos patient.id ou patient_id disponível
-          if (consultation?.patient?.id) {
-            return consultation.patient.id;
-          } else if (consultation?.patient_id) {
-            return consultation.patient_id;
-          }
-          return null;
-        }).filter(Boolean)
+        validPrescriptions.map((prescription: Prescription) => prescription.patient_id).filter(Boolean)
       ).size;
 
       setStats({
-        total: recordsData.length,
-        thisMonth: thisMonthRecords.length,
-        completedConsultations: completedConsultations.length,
+        total: validPrescriptions.length,
+        thisMonth: thisMonthPrescriptions.length,
+        totalMedications,
         uniquePatients
       });
 
       setError(null);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      setError('Erro ao carregar dados dos prontuários. Por favor, tente novamente.');
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
+      setError('Erro ao carregar dados das receitas. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -263,45 +212,41 @@ export default function PrescriptionPage() {
     setRefreshing(false);
   };
 
-  const handleAdd = () => {
-    setSelectedRecord(null);
-    setModalMode('create');
-    setShowModal(true);
-  };
-
-  const handleEdit = (record: MedicalRecord) => {
-    setSelectedRecord(record);
-    setModalMode('edit');
-    setShowModal(true);
-  };
-
-  const handleView = (record: MedicalRecord) => {
-    setSelectedRecord(record);
+  const handleView = (prescription: Prescription) => {
+    setSelectedPrescription(prescription);
     setModalMode('view');
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este prontuário?')) {
+  const handleAddMedicationModal = (prescription: Prescription) => {
+    setSelectedPrescription(prescription);
+    setModalMode('add-medication');
+    setShowModal(true);
+  };
+
+  const handleDeleteMedication = async (medicationId: string) => {
+    if (!confirm('Tem certeza que deseja remover este medicamento?')) {
       return;
     }
 
     try {
-      const result = await handleDeleteMedicalRecord(id);
+      const result = await handleRemoveMedication(medicationId);
       if (result?.error) {
         alert(`Erro: ${result.error}`);
       } else {
         await loadData();
       }
     } catch (error) {
-      console.error('Erro ao excluir prontuário:', error);
-      alert('Erro ao excluir prontuário');
+      console.error('Erro ao remover medicamento:', error);
+      alert('Erro ao remover medicamento');
     }
   };
 
   const closeModal = () => {
     setShowModal(false);
-    setSelectedRecord(null);
+    setSelectedPrescription(null);
+    setSuccess(false);
+    setError(null);
   };
 
   const handleModalSuccess = () => {
@@ -310,565 +255,55 @@ export default function PrescriptionPage() {
   };
 
   // Funções de utilidade
-  const getConsultationById = (id: string) => {
-    const consultation = consultations.find(c => c.id === id);
-    if (!consultation) return undefined;
-    return consultation;
-  };
-
-  const getDoctorById = (id: string) => {
-    return doctors.find(doctor => doctor.id === id);
-  };
-
-  const getPatientById = (id: string) => {
+  const getPatientById = (id: string): Patient | undefined => {
+    if (!id) return undefined;
     return patients.find(patient => patient.id === id);
   };
 
-  // Filtrar prontuários
-  const filteredRecords = medicalRecords.filter(record => {
-    const consultation = record.consultation || getConsultationById(record.consultation_id);
-    const patient = consultation?.patient || getPatientById(consultation?.patient_id || '');
-    const doctor = consultation?.doctor || getDoctorById(consultation?.doctor_id || '');
+  const getDoctorById = (id: string): Medico | undefined => {
+    if (!id) return undefined;
+    return medicos.find(medico => medico.id === id);
+  };
+
+  // Filtrar receitas
+  const filteredPrescriptions = prescriptions.filter((prescription: Prescription) => {
+    // Buscar o paciente e médico diretamente pelo ID na prescrição
+    const patient = getPatientById(prescription.patient_id);
+    const doctor = getDoctorById(prescription.doctor_id);
 
     const matchesSearch = !searchTerm || 
-      patient?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.diagnosis.toLowerCase().includes(searchTerm.toLowerCase());
+      (patient?.name && patient.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesDoctor = !doctorFilter || 
-      doctor?.name.toLowerCase().includes(doctorFilter.toLowerCase());
+      (doctor?.name && doctor.name.toLowerCase().includes(doctorFilter.toLowerCase()));
+
+    const matchesMedication = !medicationFilter || 
+      prescription.medications?.some(med => 
+        med.name.toLowerCase().includes(medicationFilter.toLowerCase())
+      );
 
     const matchesDate = !dateFilter || 
-      record.created_at.split('T')[0] === dateFilter;
+      (prescription.date && prescription.date.toString().split('T')[0] === dateFilter);
 
-    return matchesSearch && matchesDoctor && matchesDate;
-  });
-
-  return (
-    <div className="space-y-6">
-      {/* Error Banner */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3"
-        >
-          <AlertCircle className="w-5 h-5 text-red-500" />
-          <div className="flex-1">
-            <p className="text-red-800 font-medium">Erro ao carregar dados</p>
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            className="flex items-center space-x-2 text-red-600 hover:text-red-800"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            <span className="text-sm">Tentar novamente</span>
-          </button>
-        </motion.div>
-      )}
-
-      <MedicalRecordsComponent
-        medicalRecords={filteredRecords}
-        loading={loading}
-        stats={stats}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        doctorFilter={doctorFilter}
-        setDoctorFilter={setDoctorFilter}
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        handleAdd={handleAdd}
-        handleEdit={handleEdit}
-        handleView={handleView}
-        handleDelete={handleDelete}
-        getConsultationById={getConsultationById}
-        getDoctorById={getDoctorById}
-        getPatientById={getPatientById}
-      />
-
-      {/* Modal para Criar/Editar/Visualizar Prontuário */}
-      {showModal && (
-        <MedicalRecordModal
-          isOpen={showModal}
-          onClose={closeModal}
-          record={selectedRecord}
-          mode={modalMode}
-          onSuccess={handleModalSuccess}
-          consultations={consultations.filter(c => c.status === 'Concluída')}
-          doctors={doctors}
-          patients={patients}
-          getConsultationById={getConsultationById}
-          getDoctorById={getDoctorById}
-          getPatientById={getPatientById}
-        />
-      )}
-    </div>
-  );
-}
-
-// Interface para o componente de Prontuários
-interface MedicalRecordsComponentProps {
-  medicalRecords: MedicalRecord[];
-  loading: boolean;
-  stats: MedicalRecordStats;
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  doctorFilter: string;
-  setDoctorFilter: (doctor: string) => void;
-  dateFilter: string;
-  setDateFilter: (date: string) => void;
-  handleAdd: () => void;
-  handleEdit: (record: MedicalRecord) => void;
-  handleView: (record: MedicalRecord) => void;
-  handleDelete: (id: string) => void;
-  getConsultationById: (id: string) => Consultation | undefined;
-  getDoctorById: (id: string) => Doctor | undefined;
-  getPatientById: (id: string) => Patient | undefined;
-}
-
-// Componente principal dos prontuários
-const MedicalRecordsComponent: React.FC<MedicalRecordsComponentProps> = ({
-  medicalRecords,
-  loading,
-  stats,
-  searchTerm,
-  setSearchTerm,
-  doctorFilter,
-  setDoctorFilter,
-  dateFilter,
-  setDateFilter,
-  handleAdd,
-  handleEdit,
-  handleView,
-  handleDelete,
-  getConsultationById,
-  getDoctorById,
-  getPatientById
-}) => {
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { 
-        duration: 0.6,
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: { opacity: 1, x: 0 }
-  };
-
-  const recentRecords = medicalRecords
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 3);
-
-  return (
-    <motion.div
-      key="medical-records"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-      className="space-y-6"
-    >
-      {/* Header da página */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div>
-          <h2 className="text-4xl font-bold text-slate-800">Prontuários</h2>
-          <p className="text-slate-500 mt-1">Registros médicos e histórico dos pacientes</p>
-          <p className="text-sm text-slate-400 mt-1">
-            {loading ? (
-              <span className="flex items-center space-x-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Carregando...</span>
-              </span>
-            ) : (
-              `${medicalRecords.length} prontuários no sistema`
-            )}
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleAdd}
-            disabled={loading}
-            className="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-shadow disabled:opacity-50"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">Novo Prontuário</span>
-          </motion.button>
-        </div>
-      </motion.div>
-
-      {/* Cards de estatísticas */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Total de Prontuários</p>
-              <p className="text-2xl font-bold">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.total}
-              </p>
-            </div>
-            <FileText className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Este Mês</p>
-              <p className="text-2xl font-bold">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.thisMonth}
-              </p>
-            </div>
-            <Calendar className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Consultas Registradas</p>
-              <p className="text-2xl font-bold">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.completedConsultations}
-              </p>
-            </div>
-            <ClipboardList className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90">Pacientes Atendidos</p>
-              <p className="text-2xl font-bold">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.uniquePatients}
-              </p>
-            </div>
-            <User className="w-8 h-8 opacity-80" />
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Busca e filtros */}
-      <motion.div variants={itemVariants} className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-800">Buscar Prontuários</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar por paciente ou diagnóstico..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div className="relative">
-            <Stethoscope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar por médico..."
-              value={doctorFilter}
-              onChange={(e) => setDoctorFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Lista de prontuários */}
-      <motion.div variants={itemVariants} className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-slate-800">Prontuários Médicos</h3>
-          <p className="text-sm text-slate-500">
-            {loading ? 'Carregando...' : `${medicalRecords.length} registros encontrados`}
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center space-x-3">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-              <p className="text-slate-500">Carregando prontuários...</p>
-            </div>
-          </div>
-        ) : medicalRecords.length > 0 ? (
-          <div className="grid gap-6">
-            {medicalRecords.map((record, index) => {
-              const consultation = record.consultation || getConsultationById(record.consultation_id);
-              const doctor = consultation?.doctor || getDoctorById(consultation?.doctor_id || '');
-              const patient = consultation?.patient || getPatientById(consultation?.patient_id || '');
-              
-              return (
-                <motion.div
-                  key={record.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ y: -2, scale: 1.01 }}
-                  className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-indigo-500 hover:shadow-xl transition-all duration-300"
-                >
-                  {/* Header do prontuário */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-gradient-to-r from-indigo-100 to-indigo-200 rounded-2xl flex items-center justify-center">
-                        <FileText className="w-8 h-8 text-indigo-600" />
-                      </div>
-                      <div>
-                        <h4 className="text-xl font-bold text-slate-800">{patient?.name}</h4>
-                        <p className="text-sm text-slate-500 mb-1">
-                          Atendido por: {doctor?.name} • {doctor?.specialty}
-                        </p>
-                        <div className="flex items-center space-x-4 text-xs text-slate-400">
-                          <span>📅 {new Date(record.created_at).toLocaleDateString('pt-BR')}</span>
-                          <span>🕐 {consultation?.time}</span>
-                          <span>📋 Prontuário #{record.id.slice(-6)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleView(record)}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                        title="Visualizar prontuário"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </motion.button>
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleEdit(record)}
-                        className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
-                        title="Editar prontuário"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </motion.button>
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                        title="Baixar PDF"
-                      >
-                        <Download className="w-4 h-4" />
-                      </motion.button>
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleDelete(record.id)}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                        title="Excluir prontuário"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </motion.button>
-                    </div>
-                  </div>
-                  
-                  {/* Conteúdo do prontuário */}
-                  <div className="space-y-6">
-                    {/* Diagnóstico */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Activity className="w-5 h-5 text-blue-600" />
-                        <h5 className="font-semibold text-slate-800">Diagnóstico</h5>
-                      </div>
-                      <p className="text-slate-700 leading-relaxed">{record.diagnosis}</p>
-                    </div>
-                    
-                    {/* Anotações */}
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <ClipboardList className="w-5 h-5 text-slate-600" />
-                        <h5 className="font-semibold text-slate-800">Anotações da Consulta</h5>
-                      </div>
-                      <p className="text-slate-700 leading-relaxed">{record.notes}</p>
-                    </div>
-                    
-                    {/* Informações adicionais */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-100">
-                      <div className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg">
-                        <User className="w-6 h-6 text-slate-500 mx-auto mb-2" />
-                        <p className="text-xs text-slate-500 mb-1">Paciente</p>
-                        <p className="font-medium text-slate-800">{patient?.name}</p>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg">
-                        <Stethoscope className="w-6 h-6 text-slate-500 mx-auto mb-2" />
-                        <p className="text-xs text-slate-500 mb-1">Médico</p>
-                        <p className="font-medium text-slate-800">{doctor?.name}</p>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg">
-                        <Calendar className="w-6 h-6 text-slate-500 mx-auto mb-2" />
-                        <p className="text-xs text-slate-500 mb-1">Data da Consulta</p>
-                        <p className="font-medium text-slate-800">
-                          {consultation?.date ? new Date(consultation.date).toLocaleDateString('pt-BR') : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 text-lg mb-2">Nenhum prontuário encontrado</p>
-            <p className="text-slate-400 text-sm mb-6">
-              Os prontuários aparecerão aqui após as consultas serem registradas
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleAdd}
-              className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-shadow"
-            >
-              Criar Primeiro Prontuário
-            </motion.button>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Resumo recente */}
-      {recentRecords.length > 0 && (
-        <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Prontuários Recentes</h3>
-          <div className="space-y-3">
-            {recentRecords.map((record, index) => {
-              const consultation = record.consultation || getConsultationById(record.consultation_id);
-              const patient = consultation?.patient || getPatientById(consultation?.patient_id || '');
-              const doctor = consultation?.doctor || getDoctorById(consultation?.doctor_id || '');
-              
-              return (
-                <motion.div
-                  key={record.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                  onClick={() => handleView(record)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800">{patient?.name}</p>
-                      <p className="text-sm text-slate-500">
-                        {doctor?.name} • {new Date(record.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleView(record);
-                    }}
-                    className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </motion.button>
-                </motion.div>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
-    </motion.div>
-  );
-};
-
-// Componente Modal para Criar/Editar/Visualizar Prontuário
-interface MedicalRecordModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  record: MedicalRecord | null;
-  mode: 'create' | 'edit' | 'view';
-  onSuccess: () => void;
-  consultations: Consultation[];
-  doctors: Doctor[];
-  patients: Patient[];
-  getConsultationById: (id: string) => Consultation | undefined;
-  getDoctorById: (id: string) => Doctor | undefined;
-  getPatientById: (id: string) => Patient | undefined;
-}
-
-function MedicalRecordModal({
-  isOpen,
-  onClose,
-  record,
-  mode,
-  onSuccess,
-  consultations,  
-  getConsultationById,
-  getDoctorById,
-  getPatientById
-}: MedicalRecordModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  
-  const [formData, setFormData] = useState<{
-    consultation_id: string;
-    notes: string;
-    diagnosis: string;
-  }>({
-    consultation_id: '',
-    notes: '',
-    diagnosis: ''
+    return matchesSearch && matchesDoctor && matchesMedication && matchesDate;
   });
 
   // Reset form quando modal abre/fecha
   useEffect(() => {
-    if (isOpen) {
-      if ((mode === 'edit' || mode === 'view') && record) {
-        setFormData({
-          consultation_id: record.consultation_id,
-          notes: record.notes,
-          diagnosis: record.diagnosis
-        });
-      } else {
-        setFormData({
-          consultation_id: '',
-          notes: '',
-          diagnosis: ''
-        });
-      }
+    if (showModal && modalMode === 'add-medication') {
+      setFormData({
+        name: '',
+        dosage: '',
+        frequency: '',
+        duration: ''
+      });
       setError('');
       setSuccess(false);
     }
-  }, [isOpen, mode, record]);
+  }, [showModal, modalMode]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  // Manipulação do formulário
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -879,8 +314,13 @@ function MedicalRecordModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.consultation_id || !formData.notes || !formData.diagnosis) {
+    if (!formData.name || !formData.dosage || !formData.frequency || !formData.duration) {
       setError('Todos os campos são obrigatórios');
+      return;
+    }
+
+    if (!selectedPrescription?.id) {
+      setError('Receita não encontrada');
       return;
     }
 
@@ -888,272 +328,637 @@ function MedicalRecordModal({
     setError('');
 
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('consultation_id', formData.consultation_id);
-      formDataToSend.append('notes', formData.notes);
-      formDataToSend.append('diagnosis', formData.diagnosis);
-
-      let result;
-      if (mode === 'edit' && record) {
-        formDataToSend.append('id', record.id);
-        result = await handleUpdateMedicalRecord(formDataToSend);
-      } else {
-        result = await handleCreateMedicalRecord(formDataToSend);
-      }
+      // Enviando apenas os dados presentes no AddMedicationDTO
+      const result = await handleAddMedication(selectedPrescription.id, {
+        name: formData.name,
+        dosage: formData.dosage,
+        frequency: formData.frequency,
+        duration: formData.duration
+      });
 
       if (result?.error) {
         setError(result.error);
       } else {
         setSuccess(true);
         setTimeout(() => {
-          onSuccess();
+          handleModalSuccess();
         }, 1500);
       }
     } catch (error) {
-      console.error('Erro ao salvar prontuário:', error);
+      console.error('Erro ao adicionar medicamento:', error);
       setError('Erro interno do servidor');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
-  // Dados para visualização
-  const consultation = record ? (record.consultation || getConsultationById(record.consultation_id)) : null;
-  const doctor = consultation ? (consultation.doctor || getDoctorById(consultation.doctor_id || '')) : null;
-  const patient = consultation ? (consultation.patient || getPatientById(consultation.patient_id || '')) : null;
+  // Ordenar por data de criação, mais recentes primeiro
+  const recentPrescriptions = [...prescriptions]
+    .sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, 5);
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-8 w-full relative overflow-hidden pb-10"
+    >
+      {/* Elementos de background estilizados */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {backgroundElements.map((el, i) => (
+          <motion.div
+            key={i}
+            variants={floatingVariants}
+            animate="animate"
+            className="absolute rounded-full bg-gradient-to-r from-emerald-900/10 to-blue-900/10 dark:from-emerald-500/10 dark:to-blue-500/10 blur-3xl"
+            style={{
+              left: el.left,
+              top: el.top,
+              width: `${el.size}px`,
+              height: `${el.size}px`,
+              animationDelay: `${i * 0.5}s`
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center space-x-3"
+        >
+          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
+          <div className="flex-1">
+            <p className="text-red-800 dark:text-red-300 font-medium">Erro ao carregar dados</p>
+            <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center space-x-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">Tentar novamente</span>
+          </button>
+        </motion.div>
+      )}
+
+      {/* Cabeçalho da página */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        variants={itemVariants}
+        className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0"
       >
-        <div className="p-6">
-          <h3 className="text-xl font-bold text-slate-800 mb-6">
-            {mode === 'create' && 'Novo Prontuário'}
-            {mode === 'edit' && 'Editar Prontuário'}
-            {mode === 'view' && 'Visualizar Prontuário'}
+        <div>
+          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-blue-500 dark:from-emerald-400 dark:to-blue-300">
+            Receitas Médicas
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Prescrições e medicamentos dos pacientes</p>
+        </div>
+      </motion.div>
+
+      {/* Cards de estatísticas */}
+      <motion.div 
+        variants={itemVariants} 
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+      >
+        {/* Total de receitas */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-2">
+            <Receipt className="w-8 h-8 text-emerald-500 dark:text-emerald-400" />
+            <Badge variant="outline" className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : stats.total}
+            </Badge>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+            Total de Receitas
           </h3>
+          <Separator className="my-2 bg-emerald-200 dark:bg-emerald-800" />
+          <p className="text-sm text-slate-600 dark:text-slate-400">Receitas emitidas no sistema</p>
+        </div>
+        
+        {/* Receitas este mês */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-2">
+            <Calendar className="w-8 h-8 text-blue-500 dark:text-blue-400" />
+            <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : stats.thisMonth}
+            </Badge>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+            Este Mês
+          </h3>
+          <Separator className="my-2 bg-blue-200 dark:bg-blue-800" />
+          <p className="text-sm text-slate-600 dark:text-slate-400">Novas receitas no mês atual</p>
+        </div>
+        
+        {/* Medicamentos */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-2">
+            <Pill className="w-8 h-8 text-purple-500 dark:text-purple-400" />
+            <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : stats.totalMedications}
+            </Badge>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+            Medicamentos
+          </h3>
+          <Separator className="my-2 bg-purple-200 dark:bg-purple-800" />
+          <p className="text-sm text-slate-600 dark:text-slate-400">Total de medicamentos prescritos</p>
+        </div>
+        
+        {/* Pacientes */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-2">
+            <User className="w-8 h-8 text-orange-500 dark:text-orange-400" />
+            <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : stats.uniquePatients}
+            </Badge>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+            Pacientes
+          </h3>
+          <Separator className="my-2 bg-orange-200 dark:bg-orange-800" />
+          <p className="text-sm text-slate-600 dark:text-slate-400">Pacientes com prescrições</p>
+        </div>
+      </motion.div>
 
-          {mode === 'view' ? (
-            // Modo visualização
-            <div className="space-y-6">
-              {/* Informações do paciente e médico */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg">
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Paciente</label>
-                  <p className="text-lg font-semibold text-slate-800">{patient?.name}</p>
-                  <p className="text-sm text-slate-500">{patient?.cpf}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Médico</label>
-                  <p className="text-lg font-semibold text-slate-800">{doctor?.name}</p>
-                  <p className="text-sm text-slate-500">{doctor?.specialty}</p>
-                </div>
-              </div>
+      {/* Busca e filtros */}
+      <motion.div 
+        variants={itemVariants} 
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-100 dark:border-slate-700"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Buscar Receitas</h3>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Buscar por paciente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="relative">
+            <Stethoscope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Buscar por médico..."
+              value={doctorFilter}
+              onChange={(e) => setDoctorFilter(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="relative">
+            <Pill className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Buscar por medicamento..."
+              value={medicationFilter}
+              onChange={(e) => setMedicationFilter(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+      </motion.div>
 
-              {/* Data da consulta */}
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <label className="text-sm font-medium text-slate-600">Data da Consulta</label>
-                <p className="text-lg font-semibold text-slate-800">
-                  {consultation?.date ? new Date(consultation.date).toLocaleDateString('pt-BR') : 'N/A'} às {consultation?.time}
-                </p>
-              </div>
+      {/* Lista de receitas */}
+      <motion.div 
+        variants={itemVariants} 
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 border border-slate-100 dark:border-slate-700"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-1">Receitas Médicas</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {loading ? 'Carregando...' : `${filteredPrescriptions.length} receitas encontradas`}
+            </p>
+          </div>
+        </div>
 
-              {/* Diagnóstico */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Diagnóstico
-                </label>
-                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                  <p className="text-slate-700 leading-relaxed">{record?.diagnosis}</p>
-                </div>
-              </div>
-
-              {/* Anotações */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Anotações da Consulta
-                </label>
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-slate-700 leading-relaxed whitespace-pre-line">{record?.notes}</p>
-                </div>
-              </div>
-
-              {/* Metadados */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Criado em</label>
-                  <p className="text-slate-800">
-                    {record ? new Date(record.created_at).toLocaleString('pt-BR') : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Última atualização</label>
-                  <p className="text-slate-800">
-                    {record ? new Date(record.updated_at).toLocaleString('pt-BR') : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Botões de ação */}
-              <div className="flex items-center space-x-3 pt-4">
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  Fechar
-                </button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  <Download className="w-4 h-4 inline mr-2" />
-                  Baixar PDF
-                </motion.button>
-              </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center space-x-3">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-500 dark:text-emerald-400" />
+              <p className="text-slate-500 dark:text-slate-400">Carregando receitas...</p>
             </div>
-          ) : (
-            // Modo criação/edição
-            <motion.form onSubmit={handleSubmit} className="space-y-4">
-              {/* Seleção de consulta */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Consulta *
-                </label>
-                <select
-                  name="consultation_id"
-                  value={formData.consultation_id}
-                  onChange={handleInputChange}
-                  required
-                  disabled={mode === 'edit'}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100"
-                >
-                  <option value="">Selecione uma consulta</option>
-                  {consultations.map(consultation => {
-                    const doctorId = consultation.doctor_id || (consultation.doctor?.id || '');
-                    const patientId = consultation.patient_id || (consultation.patient?.id || '');
-                    const doctor = consultation.doctor || getDoctorById(doctorId);
-                    const patient = consultation.patient || getPatientById(patientId);
-                    return (
-                      <option key={consultation.id} value={consultation.id}>
-                        {patient?.name} - {doctor?.name} ({new Date(consultation.date).toLocaleDateString('pt-BR')} às {consultation.time})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* Diagnóstico */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Diagnóstico *
-                </label>
-                <input
-                  type="text"
-                  name="diagnosis"
-                  value={formData.diagnosis}
-                  onChange={handleInputChange}
-                  placeholder="Ex: Gripe comum, Hipertensão arterial..."
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* Anotações */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Anotações da Consulta *
-                </label>
-                <textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  placeholder="Descreva os sintomas, exames realizados, tratamento recomendado..."
-                  required
-                  rows={6}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-vertical"
-                />
-              </div>
-
-              {/* Mensagem de erro */}
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
+          </div>
+        ) : filteredPrescriptions.length > 0 ? (
+          <div className="space-y-4">
+            {filteredPrescriptions.map((prescription: Prescription, index: number) => {
+              // Buscar o paciente e médico diretamente pelos IDs na prescrição
+              const patient = getPatientById(prescription.patient_id);
+              const doctor = getDoctorById(prescription.doctor_id);
+              const medications = prescription.medications || [];
+              
+              return (
+                <motion.div
+                  key={prescription.id}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm flex items-center gap-2"
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ x: 4, backgroundColor: '#f8fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                  className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700 dark:hover:bg-slate-700/50 transition-all cursor-pointer"
+                  onClick={() => handleView(prescription)}
                 >
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  {error}
+                  {/* Conteúdo da receita */}
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                      <Receipt className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-800 dark:text-slate-200">{patient?.name || 'Paciente não encontrado'}</h4>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Dr(a). {doctor?.name || 'Médico não encontrado'} • 
+                        {medications.length} medicamento{medications.length !== 1 ? 's' : ''}
+                      </p>
+                      <div className="flex items-center space-x-4 text-xs text-slate-400 dark:text-slate-500 mt-1">
+                        <span>{prescription.date ? new Date(prescription.date).toLocaleDateString('pt-BR') : 'Data desconhecida'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Botões de ação */}
+                  <div className="flex items-center space-x-2">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleView(prescription);
+                      }}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                      title="Visualizar receita"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </motion.button>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddMedicationModal(prescription);
+                      }}
+                      className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
+                      title="Adicionar medicamento"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </motion.button>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="p-2 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
+                      title="Imprimir receita"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </motion.button>
+                  </div>
                 </motion.div>
-              )}
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+            <Receipt className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-500 dark:text-slate-400 text-lg mb-2">Nenhuma receita encontrada</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm mb-6">
+              As receitas médicas aparecerão aqui após serem emitidas
+            </p>
+          </div>
+        )}
+      </motion.div>
 
-              {/* Mensagem de sucesso */}
-              <AnimatePresence>
-                {success && (
+      {/* Seção de prescrições recentes - corrigido para usar recentPrescriptions */}
+      <motion.div 
+        variants={itemVariants} 
+        className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700 mt-8"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Receitas Recentes</h3>
+        </div>
+
+        {recentPrescriptions.length > 0 ? (
+          <div className="space-y-3">
+            {recentPrescriptions.map((prescription) => {
+              const patient = getPatientById(prescription.patient_id);
+              
+              return (
+                <div 
+                  key={prescription.id}
+                  className="p-3 border border-slate-100 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  onClick={() => handleView(prescription)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{patient?.name || 'Paciente desconhecido'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {prescription.date ? new Date(prescription.date).toLocaleDateString('pt-BR') : 'Data desconhecida'}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
+                      {prescription.medications?.length || 0} medicamentos
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Receipt className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-500 dark:text-slate-400">Nenhuma receita recente</p>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Modal para Visualizar/Adicionar Medicamento */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-blue-500 dark:from-emerald-400 dark:to-blue-300">
+              {modalMode === 'add-medication' && 'Adicionar Medicamento'}
+              {modalMode === 'view' && 'Visualizar Receita'}
+            </DialogTitle>
+            <DialogDescription>
+              {modalMode === 'add-medication' && 'Adicione um novo medicamento a esta receita.'}
+              {modalMode === 'view' && 'Detalhes completos da receita médica.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={modalMode !== 'view' ? handleSubmit : undefined} className="space-y-4">
+            {modalMode === 'view' ? (
+              // Modo visualização
+              <>
+                {/* Informações do paciente e médico */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Paciente</label>
+                    <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                      {selectedPrescription ? getPatientById(selectedPrescription.patient_id)?.name || 'Não encontrado' : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Médico</label>
+                    <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                      {selectedPrescription ? getDoctorById(selectedPrescription.doctor_id)?.name || 'Não encontrado' : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Data da consulta */}
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <label className="text-sm font-medium text-slate-600 dark:text-emerald-200">Data da Receita</label>
+                  <p className="text-lg font-semibold text-slate-800 dark:text-emerald-300">
+                    {selectedPrescription?.date ? 
+                      new Date(selectedPrescription.date).toLocaleDateString('pt-BR') : 'Não encontrada'}
+                  </p>
+                </div>
+
+                {/* Notas adicionais */}
+                {selectedPrescription?.notes && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <label className="text-sm font-medium text-slate-600 dark:text-blue-200">Observações</label>
+                    <p className="text-slate-800 dark:text-blue-300">
+                      {selectedPrescription.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Medicamentos */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Medicamentos Prescritos ({selectedPrescription?.medications?.length || 0})
+                  </label>
+                  <div className="space-y-3">
+                    {selectedPrescription?.medications?.map((medication, idx) => (
+                      <div key={medication.id} className="p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-white text-xs font-bold">{idx + 1}</span>
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-800 dark:text-emerald-200 mb-1">{medication.name} - {medication.dosage}</p>
+                              <p className="text-sm text-slate-600 dark:text-emerald-300 mb-1"><strong>Frequência:</strong> {medication.frequency}</p>
+                              <p className="text-sm text-slate-600 dark:text-emerald-300"><strong>Duração:</strong> {medication.duration}</p>
+                            </div>
+                          </div>
+                          {/* Botão para remover medicamento */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMedication(medication.id);
+                              closeModal();
+                            }}
+                            className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full transition-colors"
+                            title="Remover medicamento"
+                            type="button"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )) || (
+                      <div className="text-center py-8 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                        <Pill className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                        <p className="text-slate-500 dark:text-slate-400">Nenhum medicamento prescrito</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metadados */}
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Criado em</label>
+                    <p className="text-slate-800 dark:text-slate-300">
+                      {selectedPrescription ? new Date(selectedPrescription.created_at).toLocaleString('pt-BR') : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Última atualização</label>
+                    <p className="text-slate-800 dark:text-slate-300">
+                      {selectedPrescription ? new Date(selectedPrescription.updated_at).toLocaleString('pt-BR') : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={closeModal}
+                    className="flex-1"
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              </>
+            ) : (
+              // Modo adicionar medicamento
+              <>
+                {/* Informações da receita */}
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                  <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-2">
+                    Receita: {selectedPrescription && getPatientById(selectedPrescription.patient_id)?.name || 'Paciente não encontrado'}
+                  </h4>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-300">
+                    Dr(a). {selectedPrescription && getDoctorById(selectedPrescription.doctor_id)?.name || 'Médico não encontrado'}
+                  </p>
+                </div>
+
+                {/* Nome do medicamento */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Nome do Medicamento *
+                  </label>
+                  <Input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Ex: Paracetamol, Amoxicilina..."
+                    required
+                  />
+                </div>
+
+                {/* Dosagem */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Dosagem *
+                  </label>
+                  <Input
+                    type="text"
+                    name="dosage"
+                    value={formData.dosage}
+                    onChange={handleInputChange}
+                    placeholder="Ex: 500mg, 1g, 20ml..."
+                    required
+                  />
+                </div>
+
+                {/* Frequência */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Frequência *
+                  </label>
+                  <Input
+                    type="text"
+                    name="frequency"
+                    value={formData.frequency}
+                    onChange={handleInputChange}
+                    placeholder="Ex: A cada 8 horas, 2x ao dia..."
+                    required
+                  />
+                </div>
+
+                {/* Duração */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Duração *
+                  </label>
+                  <Input
+                    type="text"
+                    name="duration"
+                    value={formData.duration}
+                    onChange={handleInputChange}
+                    placeholder="Ex: 7 dias, 2 semanas, contínuo..."
+                    required
+                  />
+                </div>
+
+                {/* Mensagem de erro */}
+                {error && (
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="p-3 bg-green-50 border border-green-100 rounded-lg text-green-700 text-sm flex items-center gap-2"
+                    className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm flex items-center gap-2"
                   >
-                    <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                    <span>
-                      Prontuário {mode === 'create' ? 'criado' : 'atualizado'} com sucesso!
-                    </span>
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    {error}
                   </motion.div>
                 )}
-              </AnimatePresence>
 
-              <div className="flex items-center space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <motion.button
-                  type="submit"
-                  disabled={isLoading}
-                  whileHover={!isLoading && !success ? { scale: 1.02 } : {}}
-                  whileTap={!isLoading && !success ? { scale: 0.98 } : {}}
-                  className={`flex-1 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 font-medium ${
-                    success 
-                      ? 'bg-green-500 text-white'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  } transition-colors disabled:opacity-70`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div 
-                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
-                      />
-                      <span>Salvando...</span>
-                    </>
-                  ) : success ? (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Salvo com sucesso!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>{mode === 'create' ? 'Criar Prontuário' : 'Atualizar Prontuário'}</span>
-                    </>
+                {/* Mensagem de sucesso */}
+                <AnimatePresence>
+                  {success && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800 rounded-lg text-green-700 dark:text-green-300 text-sm flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                      <span>Medicamento adicionado com sucesso!</span>
+                    </motion.div>
                   )}
-                </motion.button>
-              </div>
-            </motion.form>
-          )}
-        </div>
-      </motion.div>
-    </div>
+                </AnimatePresence>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeModal}
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </Button>
+                  
+                  <Button
+                    type="submit"
+                    disabled={isLoading || success}
+                    className={`${
+                      success 
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adicionando...
+                      </>
+                    ) : success ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Adicionado!
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Medicamento
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </form>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
   );
 }
+

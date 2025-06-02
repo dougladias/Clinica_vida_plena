@@ -1,3 +1,5 @@
+import { Medico } from './doctor.type';
+import { Patient } from './patient.type';
 
 // Interface para representar o médico em uma consulta
 export interface ConsultationDoctor {
@@ -23,13 +25,17 @@ export interface ConsultationPatient {
 // Interface principal para consulta
 export interface Consultation {
   id: string;
+  patient_id: string;
+  doctor_id: string;
   date: string;
   time: string;
-  doctor_id: string;
-  patient_id: string;
   status: string;
-  doctor?: ConsultationDoctor;
-  patient?: ConsultationPatient;
+  type?: string;
+  notes?: string;
+  patient?: Patient;
+  medico?: Medico;
+  created_at: string;
+  updated_at: string;
 }
 
 // Interface para estatísticas de consultas

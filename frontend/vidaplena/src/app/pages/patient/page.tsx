@@ -5,12 +5,12 @@ import { motion, Variants } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 // Componentes
-import { BackgroundElements } from '@/components/patient/BackgroundElements';
-import { LoadingSkeleton } from '@/components/patient/LoadingSkeleton';
-import { PatientHeader } from '@/components/patient/PatientHeader';
-import { PatientStats } from '@/components/patient/PatientStats';
-import { PatientTable } from '@/components/patient/PatientTable';
-import { PatientModal } from '@/components/patient/PatientModal';
+import { BackgroundElements } from '@/components/pages/patient/BackgroundElements';
+import { LoadingSkeleton } from '@/components/pages/patient/LoadingSkeleton';
+import { PatientHeader } from '@/components/pages/patient/PatientHeader';
+import { PatientStats } from '@/components/pages/patient/PatientStats';
+import { PatientTable } from '@/components/pages/patient/PatientTable';
+import { PatientModal } from '@/components/pages/patient/PatientModal';
 
 // Types e Hooks
 import { Patient, PatientStats as PatientStatsType } from '@/types/patient.type';
@@ -18,7 +18,7 @@ import {
   getPatients, 
   getActiveConsultations, 
   handleDeletePatient 
-} from '@/hooks/patient/usePatient';
+} from '@/server/patient/usePatient';
 
 export default function PatientsPage() {
   // Estados principais

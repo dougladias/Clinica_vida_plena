@@ -1,13 +1,14 @@
-
 // Representa um médico no sistema
 export interface Medico {
   id: string;
   name: string;
   crm: string;
   specialty: string;
-  phone: string;
-  email: string;
-  created_at?: string;
+  email?: string;
+  phone?: string;
+  created_at: string;
+  updated_at: string;
+  
 }
 
 
@@ -40,3 +41,4 @@ export interface ApiResponse {
   success?: boolean;
   error?: string;
 }
+
