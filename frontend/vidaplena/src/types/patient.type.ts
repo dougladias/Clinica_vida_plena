@@ -1,4 +1,4 @@
-// Interface para o objeto Paciente
+
 export interface Patient {
   id: string;
   name: string;
@@ -10,7 +10,6 @@ export interface Patient {
   updated_at: string;
 }
 
-// Interface para estatísticas de pacientes
 export interface PatientStats {
   total: number;
   newThisMonth: number;
@@ -18,7 +17,23 @@ export interface PatientStats {
   activePatients: number;
 }
 
-// Props para o modal de paciente
+export interface CreatePatientData {
+  name: string;
+  cpf: string;
+  date_birth: string;
+  address: string;
+  phone: string;
+}
+
+export interface UpdatePatientData extends Partial<CreatePatientData> {
+  id: string;
+}
+
+export interface PatientFilters {
+  name?: string;
+  cpf?: string;
+}
+
 export interface PatientModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,17 +42,10 @@ export interface PatientModalProps {
   onSuccess: () => void;
 }
 
-// Interface para formulário de paciente
 export interface PatientFormData {
   name: string;
   cpf: string;
   date_birth: string;
   address: string;
   phone: string;
-}
-
-// Interface para resposta da API
-export interface ApiResponse {
-  success?: boolean;
-  error?: string;
 }

@@ -1,7 +1,3 @@
-import { Medico } from './doctor.type';
-import { Patient } from './patient.type';
-
-// Interface para representar o médico em uma consulta
 export interface ConsultationDoctor {
   id: string;
   name: string;
@@ -11,34 +7,45 @@ export interface ConsultationDoctor {
   phone?: string;
 }
 
-// Interface para representar o paciente em uma consulta
 export interface ConsultationPatient {
   id: string;
   name: string;
   cpf?: string;
-  birthdate?: string;
+  date_birth?: string;
   address?: string;
   phone?: string;
-  email?: string;
 }
 
-// Interface principal para consulta
 export interface Consultation {
   id: string;
-  patient_id: string;
-  doctor_id: string;
   date: string;
   time: string;
-  status: string;
-  type?: string;
-  notes?: string;
-  patient?: Patient;
-  medico?: Medico;
+  doctor_id: string;
+  patient_id: string;
+  doctor?: ConsultationDoctor;
+  patient?: ConsultationPatient;
+  status: 'Agendada' | 'Em Andamento' | 'Concluída' | 'Cancelada';
   created_at: string;
   updated_at: string;
 }
 
-// Interface para estatísticas de consultas
+export interface CreateConsultationData {
+  date: string;
+  time: string;
+  doctor_id: string;
+  patient_id: string;
+}
+
+export interface UpdateConsultationData extends Partial<CreateConsultationData> {
+  id: string;
+}
+
+export interface ConsultationFilters {
+  doctor_id?: string;
+  patient_id?: string;
+  date?: string;
+}
+
 export interface ConsultationStats {
   total: number;
   today: number;
@@ -48,7 +55,6 @@ export interface ConsultationStats {
   canceled: number;
 }
 
-// Props para o modal de consulta
 export interface ConsultationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -59,18 +65,10 @@ export interface ConsultationModalProps {
   patients: ConsultationPatient[];
 }
 
-// Interface para formulário de consulta
 export interface ConsultationFormData {
   id?: string;
   date: string;
   time: string;
   doctor_id: string;
   patient_id: string;
-  status: string;
-}
-
-// Interface para resposta da API
-export interface ApiResponse {
-  success?: boolean;
-  error?: string;
 }

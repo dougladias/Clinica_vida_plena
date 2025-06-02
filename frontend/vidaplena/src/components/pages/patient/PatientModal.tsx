@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { UserPlus, Edit, Save, CheckCircle, AlertCircle, User, Shield, 
          Calendar, Phone, MapPin, Activity } from 'lucide-react';
 import { handleCreatePatient, handleUpdatePatient } from '@/server/patient/usePatient';
-import { PatientModalProps, PatientFormData } from '@/types/patient.type';
+import { PatientModalProps, PatientFormData, CreatePatientData } from '@/types/patient.type'; 
 
 export function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: PatientModalProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +67,7 @@ export function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: Pati
     if (error) setError('');
   };
 
+  // FUNÇÃO DE SUBMIT ATUALIZADA PARA NOVOS TYPES
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -79,19 +80,29 @@ export function PatientModal({ isOpen, onClose, patient, mode, onSuccess }: Pati
     setError('');
 
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('cpf', formData.cpf);
-      formDataToSend.append('date_birth', formData.date_birth);
-      formDataToSend.append('address', formData.address);
-      formDataToSend.append('phone', formData.phone);
-
       let result;
+      
       if (mode === 'edit' && patient) {
-        formDataToSend.append('id', patient.id);
-        result = await handleUpdatePatient(formDataToSend);
+        // Modo edição - usar UpdatePatientData
+        const updateData = {
+          id: patient.id,
+          name: formData.name,
+          cpf: formData.cpf,
+          date_birth: formData.date_birth,
+          address: formData.address,
+          phone: formData.phone,
+        };
+        result = await handleUpdatePatient(updateData);
       } else {
-        result = await handleCreatePatient(formDataToSend);
+        // Modo criação - usar CreatePatientData
+        const createData: CreatePatientData = {
+          name: formData.name,
+          cpf: formData.cpf,
+          date_birth: formData.date_birth,
+          address: formData.address,
+          phone: formData.phone,
+        };
+        result = await handleCreatePatient(createData);
       }
 
       if (result?.error) {

@@ -1,175 +1,179 @@
 "use server";
 
-import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { api } from '@/services/api';
-import { cookies } from 'next/headers';
-import { AxiosError } from 'axios';
-
-// Função para obter o token de autenticação
-async function getAuthToken(): Promise<string> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session')?.value;
-  
-  // Verifica se o token existe, caso contrário redireciona para a página de login
-  if (!token) {
-    redirect('/auth/login');
-  }
-  
-  return token;
-}
+import { api } from '@/services/api.service';
+import { getAuthToken, getAuthHeaders } from '@/lib/auth';
+import { handleApiError } from '@/lib/errorHandler';
+import { ApiResponse } from '@/types/api.type';
+import { 
+  Patient, 
+  CreatePatientData, 
+  UpdatePatientData 
+} from '@/types/patient.type';
 
 // Buscar todos os pacientes
-export async function getPatients() {
+export async function getPatients(): Promise<Patient[]> {
   try {
     const token = await getAuthToken();
     
-    const response = await api.get('/patient', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }      
+    const response = await api.get<Patient[]>('/patient', {
+      headers: getAuthHeaders(token)     
     });
 
-    // Log para depuração
     console.log('Resposta da API de pacientes:', response.data);
     return response.data;
   } catch (error) {
-    console.log('Erro ao buscar pacientes:', error);
-    return [];
-  }
-}
-
-// Buscar consultas ativas
-export async function getActiveConsultations() {
-  try {
-    const token = await getAuthToken();
-    
-    const response = await api.get('/consultation', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    // Log para depuração
-    return response.data;
-  } catch (error) {
-    console.log('Erro ao buscar consultas:', error);
+    console.error('Erro ao buscar pacientes:', error);
     return [];
   }
 }
 
 // Criar paciente
-export async function handleCreatePatient(formdata: FormData) {
-  const name = formdata.get("name") as string;
-  const cpf = formdata.get("cpf") as string;
-  const date_birth = formdata.get("date_birth") as string;
-  const address = formdata.get("address") as string;
-  const phone = formdata.get("phone") as string;
-
-  // Verifica se todos os campos obrigatórios estão preenchidos
-  if (!name || !cpf || !date_birth || !address || !phone) {
-    return { error: "Todos os campos são obrigatórios" };
+export async function handleCreatePatient(data: CreatePatientData): Promise<ApiResponse> {
+  // Validações
+  if (!data.name?.trim()) {
+    return { error: "Nome é obrigatório" };
   }
 
-  // Verifica se o CPF é válido (opcional, mas recomendado)
+  if (!data.cpf?.trim()) {
+    return { error: "CPF é obrigatório" };
+  }
+
+  if (!data.date_birth) {
+    return { error: "Data de nascimento é obrigatória" };
+  }
+
+  if (!data.address?.trim()) {
+    return { error: "Endereço é obrigatório" };
+  }
+
+  if (!data.phone?.trim()) {
+    return { error: "Telefone é obrigatório" };
+  }
+
+  // Validação básica de CPF (11 dígitos)
+  const cleanCPF = data.cpf.replace(/\D/g, '');
+  if (cleanCPF.length !== 11) {
+    return { error: "CPF deve ter 11 dígitos" };
+  }
+
   try {
     const token = await getAuthToken();
     
-    await api.post('/patient', {
-      name,
-      cpf,
-      date_birth,
-      address,
-      phone
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    await api.post('/patient', data, {
+      headers: getAuthHeaders(token)
     });
-    // Revalida o caminho para atualizar a lista de pacientes
+
     revalidatePath('/pages/patient');
     return { success: true };
-  } catch(err: unknown) {
-    console.log(err);
-    if (err instanceof AxiosError && err.response?.data?.error) {
-      return { error: err.response.data.error };
-    }
-    return { error: "Erro ao criar paciente" };
+  } catch(err) {
+    return { error: handleApiError(err) };
   }
 }
-
 
 // Atualizar paciente
-export async function handleUpdatePatient(formdata: FormData) {
-  const id = formdata.get("id") as string;
-  const name = formdata.get("name") as string;
-  const cpf = formdata.get("cpf") as string;
-  const date_birth = formdata.get("date_birth") as string;
-  const address = formdata.get("address") as string;
-  const phone = formdata.get("phone") as string;
-
-  // Verifica se o ID é fornecido
-  if (!id) {
+export async function handleUpdatePatient(data: UpdatePatientData): Promise<ApiResponse> {
+  if (!data.id) {
     return { error: "ID é obrigatório" };
   }
 
-  // Verifica se pelo menos um campo está preenchido
+  // Validações condicionais
+  if (data.cpf) {
+    const cleanCPF = data.cpf.replace(/\D/g, '');
+    if (cleanCPF.length !== 11) {
+      return { error: "CPF deve ter 11 dígitos" };
+    }
+  }
+
   try {
     const token = await getAuthToken();
     
-    const updateData: { name?: string; cpf?: string; date_birth?: string; address?: string; phone?: string } = {};
-    if (name) updateData.name = name;
-    if (cpf) updateData.cpf = cpf;
-    if (date_birth) updateData.date_birth = date_birth;
-    if (address) updateData.address = address;
-    if (phone) updateData.phone = phone;
+    // Remove campos vazios e o ID para o body
+    const { id, ...updateData } = data;
+    const cleanedData = Object.fromEntries(
+      Object.entries(updateData).filter(([, value]) => 
+        value !== undefined && value !== null && value !== ''
+      )
+    );
 
-    // Verifica se há dados para atualizar
-    await api.put(`/patient/${id}`, updateData, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    await api.put(`/patient/${id}`, cleanedData, {
+      headers: getAuthHeaders(token)
     });
 
-    // Revalida o caminho para atualizar a lista de pacientes
     revalidatePath('/pages/patient');
     return { success: true };
-  } catch(err: unknown) {
-    console.log(err);
-    if (err instanceof AxiosError && err.response?.data?.error) {
-      return { error: err.response.data.error };
-    }
-    return { error: "Erro ao atualizar paciente" };
+  } catch(err) {
+    return { error: handleApiError(err) };
   }
 }
 
-
-// Deletar paciente - corrigir a função
-export async function handleDeletePatient(id: string) {
+// Deletar paciente
+export async function handleDeletePatient(id: string): Promise<ApiResponse> {
   if (!id) {
     return { error: "ID é obrigatório" };
   }
 
-// Verifica se o ID é fornecido
   try {
     const token = await getAuthToken();
     
-    // Faz a requisição para deletar o paciente
     await api.delete(`/patient/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: getAuthHeaders(token)
     });
 
-    // Revalida o caminho para atualizar a lista de pacientes
     revalidatePath('/pages/patient');
     return { success: true };
-  } catch(err: unknown) {
-    console.log(err);
-    if (err instanceof AxiosError && err.response?.data?.error) {
-      return { error: err.response.data.error };
-    }
-    return { error: "Erro ao excluir paciente" };
+  } catch(err) {
+    return { error: handleApiError(err) };
   }
 }
 
+// Buscar paciente por ID
+export async function getPatientById(id: string): Promise<Patient | null> {
+  if (!id) {
+    return null;
+  }
+
+  try {
+    const token = await getAuthToken();
+    
+    const response = await api.get<Patient>(`/patient/${id}`, {
+      headers: getAuthHeaders(token)
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error(`Erro ao buscar paciente ${id}:`, error);
+    return null;
+  }
+}
+
+// Buscar estatísticas de pacientes
+export async function getPatientStats() {
+  try {
+    const patients = await getPatients();
+    
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const newThisMonth = patients.filter(patient => {
+      const createdDate = new Date(patient.created_at);
+      return createdDate.getMonth() === currentMonth && 
+             createdDate.getFullYear() === currentYear;
+    }).length;
+
+    return {
+      total: patients.length,
+      newThisMonth,
+      activeConsultations: 0, // Por enquanto 0, pode ser implementado posteriormente
+      activePatients: patients.length
+    };
+  } catch (error) {
+    console.error('Erro ao calcular estatísticas de pacientes:', error);
+    return {
+      total: 0,
+      newThisMonth: 0,
+      activeConsultations: 0,
+      activePatients: 0
+    };
+  }
+}

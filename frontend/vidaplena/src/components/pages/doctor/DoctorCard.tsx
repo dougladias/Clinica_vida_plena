@@ -12,12 +12,12 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Medico } from '@/types/doctor.type';
+import { Doctor } from '@/types/doctor.type'; 
 import { useRouter } from 'next/navigation';
 
 interface DoctorCardProps {
-  medico: Medico;
-  onEdit: (medico: Medico) => void;
+  medico: Doctor; 
+  onEdit: (medico: Doctor) => void; 
   onDelete: (id: string) => void;
 }
 
@@ -28,9 +28,7 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
 }) => {
   const router = useRouter();
   
-  // Função para visualizar a agenda do médico
   const handleViewSchedule = () => {
-    // Redireciona para a página de agenda filtrada por este médico
     router.push(`/pages/consultation?doctor_id=${medico.id}`);
   };
   
@@ -97,7 +95,6 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
           {/* Status e ações */}
           <div className="flex items-center justify-between">
             <div>
-              {/* Informação adicional relevante - data de cadastro */}
               {medico.created_at && (
                 <span className="text-xs text-slate-500 dark:text-slate-400">
                   Cadastrado em: {new Date(medico.created_at).toLocaleDateString()}

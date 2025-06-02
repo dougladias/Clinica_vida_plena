@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { api } from '@/services/api';
+import { api } from '@/services/api.service';
 
 // Função para obter cookie no servidor
 export async function getCookieServer() {

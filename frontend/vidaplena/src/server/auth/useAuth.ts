@@ -1,50 +1,86 @@
 "use server";
 
 import { redirect } from 'next/navigation';
-import { api } from '@/services/api';
+import { api } from '@/services/api.service';
 import { cookies } from 'next/headers';
+import { handleApiError } from '@/lib/errorHandler';
 
-// Função para lidar com o login do usuário
+// Interface para a resposta de login
+interface LoginResponse {
+  token: string;
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 export async function handleLogin(formdata: FormData) {
   const email = formdata.get("email") as string;
   const password = formdata.get("password") as string;
 
-  // Verifica se os campos de email e senha estão preenchidos
-  if (email === "" || password === "") {
-    return;
+  // Validações de entrada
+  if (!email || !password) {
+    return { error: "Email e senha são obrigatórios" };
   }
 
-  // Tenta fazer a requisição de login para a API
+  if (!email.includes('@')) {
+    return { error: "Email inválido" };
+  }
+
+  if (password.length < 3) {
+    return { error: "Senha deve ter pelo menos 3 caracteres" };
+  }
+
   try {
-    const response = await api.post('/session', {
+    const response = await api.post<LoginResponse>('/session', {
       email,
       password        
     });
 
-    // Se não houver token na resposta, retorna
-    if(!response.data.token) {      
-      return;
+    if (!response.data.token) {      
+      return { error: "Token não recebido do servidor" };
     }
 
-    // Armazena o token no cookie Por 1D
-    const expressTime = 60 * 60 * 24 * 1000; 
-
-    // Obtém o armazenamento de cookies
+    // Configurações de cookie mais seguras
+    const expressTime = 60 * 60 * 24 * 1000; // 1 dia
     const cookieStorage = await cookies();
 
-    // Armazena o token no cookie
     cookieStorage.set("session", response.data.token, {
-      maxAge: expressTime, 
+      maxAge: expressTime,
       path: '/',
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
-    })
+      sameSite: 'lax'
+    });
 
-  // Verifica se o token foi retornado
+    // Armazenar dados do usuário se necessário
+    cookieStorage.set("user", JSON.stringify({
+      id: response.data.id,
+      name: response.data.name,
+      email: response.data.email,
+      role: response.data.role
+    }), {
+      maxAge: expressTime,
+      path: '/',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
+
+    return { success: true };
+
   } catch(err) {
-    console.log(err);
-    return;
+    return { error: handleApiError(err) };
   }
-  // Redireciona o usuário para a página do dashboard após o login bem-sucedido
-  redirect("/pages/dashboard");
+}
+
+export async function handleLogout() {
+  try {
+    const cookieStorage = await cookies();
+    cookieStorage.delete('session');
+    cookieStorage.delete('user');
+    
+    redirect('/auth/login');
+  } catch (error) {
+    console.error('Erro ao fazer logout:', error);
+  }
 }

@@ -1,44 +1,35 @@
-// Representa um médico no sistema
-export interface Medico {
+export interface Doctor {
   id: string;
-  name: string;
+  name: string;         
   crm: string;
-  specialty: string;
-  email?: string;
-  phone?: string;
+  specialty: string;     
+  phone: string;         
+  email: string;
   created_at: string;
   updated_at: string;
-  
 }
 
-
-// Estatísticas dos médicos
-export interface MedicosStats {
+export interface DoctorStats {
   totalMedicos: number;
   especialidades: number;
   consultasHoje: number;
 }
 
-
-// Dados para criação de um médico
 export interface CreateDoctorData {
-  nome: string;
+  name: string;          
   crm: string;
-  especialidade: string;
-  telefone: string;
+  specialty: string;     
+  phone: string;         
   email: string;
 }
 
-
-// Dados para atualização de um médico
 export interface UpdateDoctorData extends CreateDoctorData {
   id: string;
 }
 
-
-// Resposta da API
-export interface ApiResponse {
-  success?: boolean;
-  error?: string;
+export interface DoctorFilters {
+  name?: string;
+  specialty?: string;
+  crm?: string;
 }
 

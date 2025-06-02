@@ -2,10 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Stethoscope } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Medico } from '@/types/doctor.type';
+import { Doctor } from '@/types/doctor.type'; 
 
 interface SpecialtyListProps {
-  medicos: Medico[];
+  medicos: Doctor[]; 
   selectedEspecialidade: string;
   onEspecialidadeChange: (especialidade: string) => void;
 }

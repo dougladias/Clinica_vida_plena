@@ -4,20 +4,21 @@ import { AlertCircle, CheckCircle, Loader2, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Medico } from '@/types/doctor.type';
+import { Doctor } from '@/types/doctor.type'; 
 
+// Interface atualizada com novos campos
 interface FormData {
-  nome: string;
+  name: string;      
   crm: string;
-  especialidade: string;
-  telefone: string;
+  specialty: string; 
+  phone: string;     
   email: string;
 }
 
 interface DoctorFormModalProps {
   open: boolean;
   mode: 'create' | 'edit';
-  selectedMedico: Medico | null;
+  selectedMedico: Doctor | null; 
   onOpenChange: (open: boolean) => void;
   onSubmit: (formData: FormData, mode: 'create' | 'edit', id?: string) => Promise<{ error?: string }>;
 }
@@ -29,11 +30,12 @@ export const DoctorFormModal: React.FC<DoctorFormModalProps> = ({
   onOpenChange,
   onSubmit
 }) => {
+  // Estado atualizado com novos campos
   const [formData, setFormData] = useState<FormData>({
-    nome: '',
+    name: '',      
     crm: '',
-    especialidade: '',
-    telefone: '',
+    specialty: '', 
+    phone: '',     
     email: ''
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -52,35 +54,32 @@ export const DoctorFormModal: React.FC<DoctorFormModalProps> = ({
     }
   };
 
-  // Efeito para preencher o formulário quando estiver editando
+  // Efeito atualizado com novos campos
   useEffect(() => {
     if (selectedMedico && mode === 'edit') {
       setFormData({
-        nome: selectedMedico.name,
+        name: selectedMedico.name,        
         crm: selectedMedico.crm,
-        especialidade: selectedMedico.specialty,
-        telefone: selectedMedico.phone,
+        specialty: selectedMedico.specialty, 
+        phone: selectedMedico.phone,       
         email: selectedMedico.email
       });
     } else {
-      // Resetar formulário quando for criação
       setFormData({
-        nome: '',
+        name: '',     
         crm: '',
-        especialidade: '',
-        telefone: '',
+        specialty: '', 
+        phone: '',     
         email: ''
       });
     }
   }, [selectedMedico, mode]);
 
-  // Handler para atualização dos campos do formulário
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler para submissão do formulário
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -133,14 +132,15 @@ export const DoctorFormModal: React.FC<DoctorFormModalProps> = ({
         />
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Campo Nome - atualizado */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Nome Completo
             </label>
             <Input
               type="text"
-              name="nome"
-              value={formData.nome}
+              name="name"     // ← NOME ATUALIZADO
+              value={formData.name}
               onChange={handleInputChange}
               required
               placeholder="Dr. João Silva"
@@ -161,28 +161,30 @@ export const DoctorFormModal: React.FC<DoctorFormModalProps> = ({
             />
           </div>
 
+          {/* Campo Especialidade - atualizado */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Especialidade
             </label>
             <Input
               type="text"
-              name="especialidade"
-              value={formData.especialidade}
+              name="specialty"  // ← NOME ATUALIZADO
+              value={formData.specialty}
               onChange={handleInputChange}
               required
               placeholder="Cardiologia"
             />
           </div>
 
+          {/* Campo Telefone - atualizado */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Telefone
             </label>
             <Input
               type="tel"
-              name="telefone"
-              value={formData.telefone}
+              name="phone"      // ← NOME ATUALIZADO
+              value={formData.phone}
               onChange={handleInputChange}
               required
               placeholder="(11) 99999-9999"

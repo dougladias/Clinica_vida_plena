@@ -28,7 +28,13 @@ import {
   getPatients
 } from '@/server/consultation/useConsultation';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ConsultationDoctor, ConsultationPatient } from '@/types/consultation.type';
+import { 
+  Consultation,           
+  ConsultationDoctor, 
+  ConsultationPatient,
+  CreateConsultationData, 
+  UpdateConsultationData  
+} from '@/types/consultation.type';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -37,8 +43,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 
-
-// Reutilize os tipos da API para evitar conflitos
+// Types estendidos para compatibilidade com o código existente
 type Doctor = ConsultationDoctor & {
   specialty: string;
   crm: string;
@@ -54,21 +59,6 @@ type Patient = ConsultationPatient & {
   email: string;
 }
 
-// Define the consultation type based on properties used throughout the code
-type ApiConsultation = {
-  id: string;
-  date: string;
-  time: string;
-  doctor_id: string;
-  patient_id: string;
-  status: string;
-  doctor?: ConsultationDoctor;
-  patient?: ConsultationPatient;
-};
-
-// Use o tipo da API como base e adicione o que precisar
-type Consultation = ApiConsultation;
-
 interface ConsultationStats {
   today: number;
   scheduled: number;
@@ -77,7 +67,8 @@ interface ConsultationStats {
 }
 
 export default function ConsultationPage() {
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  // Estados - TYPES ATUALIZADOS
+  const [consultations, setConsultations] = useState<Consultation[]>([]); // ← TIPO ATUALIZADO
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedDate, setSelectedDate] = useState(
@@ -93,32 +84,31 @@ export default function ConsultationPage() {
     completed: 0
   });
   
-  // Estados adicionados para gerenciar o modal e formulário
+  // Estados para modal e formulário
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
+  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null); // ← TIPO ATUALIZADO
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   
-  // Estado do formulário
+  // Estado do formulário - CAMPOS ATUALIZADOS
   const [formData, setFormData] = useState({
     id: '',
     date: new Date().toISOString().split('T')[0],
     time: '08:00',
     doctor_id: '',
-    patient_id: '',
-    status: 'Agendada'
+    patient_id: ''
   });
   
   const searchParams = useSearchParams();
   const doctorIdFilter = searchParams.get('doctor_id');
 
-  // CORREÇÃO: loadData com tratamento robusto de datas
+  // Função loadData com tratamento robusto de datas
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // CORREÇÃO: Garantir que selectedDate está no formato YYYY-MM-DD
+      // Garantir que selectedDate está no formato YYYY-MM-DD
       const normalizedSelectedDate = selectedDate.split('T')[0];
       
       const filters: {
@@ -159,7 +149,7 @@ export default function ConsultationPage() {
       setDoctors(doctorsData as Doctor[]);
       setPatients(patientsData as Patient[]);
 
-      // CORREÇÃO: Calcular estatísticas com comparação de datas normalizada
+      // Calcular estatísticas com comparação de datas normalizada
       const today = new Date().toISOString().split('T')[0];
       console.log('Data de hoje para comparação:', today);
       
@@ -170,6 +160,7 @@ export default function ConsultationPage() {
         return isToday;
       });
       
+      // CORREÇÃO: Usar 'Agendada' em vez de 'Agendada' para consistência
       const scheduledConsultations = consultationsData.filter(
         (c: Consultation) => c.status === 'Agendada'
       );
@@ -201,7 +192,7 @@ export default function ConsultationPage() {
     }
   }, [selectedDate, doctorIdFilter]);
 
-  // CORREÇÃO: Garantir que selectedDate seja sempre normalizada
+  // Garantir que selectedDate seja sempre normalizada
   useEffect(() => {
     const normalizedDate = selectedDate.split('T')[0];
     if (normalizedDate !== selectedDate) {
@@ -223,36 +214,52 @@ export default function ConsultationPage() {
     }));
   };
 
-  // Manipulação do formulário
+  // Manipulação do formulário - ATUALIZADO para novos tipos
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setFormError(null);
 
     try {
-      const formDataObj = new FormData();
-      
-      if (modalMode === 'edit' && selectedConsultation) {
-        formDataObj.append('id', selectedConsultation.id);
-      }
-      
-      formDataObj.append('date', formData.date);
-      formDataObj.append('time', formData.time);
-      formDataObj.append('doctor_id', formData.doctor_id);
-      formDataObj.append('patient_id', formData.patient_id);
-      formDataObj.append('status', formData.status);
-      
-      const result = modalMode === 'create' 
-        ? await handleCreateConsultation(formDataObj)
-        : await handleUpdateConsultation(formDataObj);
-      
-      if (result?.error) {
-        setFormError(result.error);
-      } else {
-        setSuccess(true);
-        setTimeout(() => {
-          handleModalSuccess();
-        }, 1500);
+      if (modalMode === 'create') {
+        // Criar consulta com novos tipos
+        const createData: CreateConsultationData = {
+          date: formData.date,
+          time: formData.time,
+          doctor_id: formData.doctor_id,
+          patient_id: formData.patient_id
+        };
+        
+        const result = await handleCreateConsultation(createData);
+        
+        if (result?.error) {
+          setFormError(result.error);
+        } else {
+          setSuccess(true);
+          setTimeout(() => {
+            handleModalSuccess();
+          }, 1500);
+        }
+      } else if (modalMode === 'edit' && selectedConsultation) {
+        // Editar consulta com novos tipos
+        const updateData: UpdateConsultationData = {
+          id: selectedConsultation.id,
+          date: formData.date,
+          time: formData.time,
+          doctor_id: formData.doctor_id,
+          patient_id: formData.patient_id
+        };
+        
+        const result = await handleUpdateConsultation(updateData);
+        
+        if (result?.error) {
+          setFormError(result.error);
+        } else {
+          setSuccess(true);
+          setTimeout(() => {
+            handleModalSuccess();
+          }, 1500);
+        }
       }
     } catch (error) {
       console.error('Erro ao salvar consulta:', error);
@@ -276,8 +283,7 @@ export default function ConsultationPage() {
       date: selectedDate,
       time: '08:00',
       doctor_id: '',
-      patient_id: '',
-      status: 'Agendada'
+      patient_id: ''
     });
     setSelectedConsultation(null);
     setModalMode('create');
@@ -286,14 +292,13 @@ export default function ConsultationPage() {
     setShowModal(true);
   };
 
-  const handleEdit = (consultation: Consultation) => {
+  const handleEdit = (consultation: Consultation) => { // ← TIPO ATUALIZADO
     setFormData({
       id: consultation.id,
       date: consultation.date,
       time: consultation.time,
       doctor_id: consultation.doctor_id,
-      patient_id: consultation.patient_id,
-      status: consultation.status
+      patient_id: consultation.patient_id
     });
     setSelectedConsultation(consultation);
     setModalMode('edit');
@@ -361,7 +366,7 @@ export default function ConsultationPage() {
     }
   };
 
-  // CORREÇÃO: Filtro robusto para consultas do dia
+  // Filtro robusto para consultas do dia
   const consultationsOfDay = consultations.filter(c => {
     // Normalizar ambas as datas para comparação
     const consultationDateStr = String(c.date).split('T')[0];
@@ -369,7 +374,7 @@ export default function ConsultationPage() {
     return consultationDateStr === selectedDateStr;
   });
 
-  // CORREÇÃO: Navegação de datas sem problemas de timezone
+  // Navegação de datas sem problemas de timezone
   const nextDay = () => {
     const [year, month, day] = selectedDate.split('-').map(Number);
     const date = new Date(year, month - 1, day);
@@ -389,22 +394,7 @@ export default function ConsultationPage() {
   const router = useRouter();
   const clearDoctorFilter = () => {
     router.push('/pages/consultation');
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Agendada':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200';
-      case 'Em Andamento':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200';
-      case 'Concluída':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200';
-      case 'Cancelada':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200';
-    }
-  };
+  };  
 
   // Elementos de background estilizados
   const backgroundElements = [
@@ -728,10 +718,7 @@ export default function ConsultationPage() {
                         </div>
                         
                         <div className="flex items-center space-x-4">
-                          {/* Status */}
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(consultation.status)}`}>
-                            {consultation.status}
-                          </span>
+                          {/* Status - REMOVIDO pois não existe no backend */}
                           
                           {/* Ações */}
                           <div className="flex items-center space-x-1">
@@ -800,7 +787,7 @@ export default function ConsultationPage() {
             
             <div className="grid grid-cols-7 gap-4">
               {Array.from({ length: 7 }, (_, i) => {
-                // CORREÇÃO: Calcular datas da semana sem problemas de timezone
+                // Calcular datas da semana sem problemas de timezone
                 const [year, month, day] = selectedDate.split('-').map(Number);
                 const baseDate = new Date(year, month - 1, day);
                 
@@ -962,9 +949,6 @@ export default function ConsultationPage() {
                                   <span className="font-medium text-purple-600 dark:text-purple-400 mr-2">{consultation.time}</span>
                                   <span className="text-slate-700 dark:text-slate-300 truncate">{patient?.name?.split(' ')[0] || "Paciente"}</span>
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${getStatusColor(consultation.status)}`}>
-                                  {consultation.status}
-                                </span>
                               </motion.div>
                             );
                           })}
@@ -1074,25 +1058,6 @@ export default function ConsultationPage() {
               </select>
             </div>
 
-            {modalMode === 'edit' && (
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-all appearance-none text-slate-800 dark:text-slate-200"
-                >
-                  <option value="Agendada">Agendada</option>
-                  <option value="Em Andamento">Em Andamento</option>
-                  <option value="Concluída">Concluída</option>
-                  <option value="Cancelada">Cancelada</option>
-                </select>
-              </div>
-            )}
-
             {/* Mensagem de erro */}
             {formError && (
               <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-lg flex items-center gap-2">
@@ -1164,12 +1129,10 @@ export default function ConsultationPage() {
                 <TableHead>Horário</TableHead>
                 <TableHead>Paciente</TableHead>
                 <TableHead>Médico</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Exemplo de linha */}
               {consultationsOfDay.map(consultation => (
                 <TableRow key={consultation.id}>
                   <TableCell>{consultation.date}</TableCell>
@@ -1179,11 +1142,6 @@ export default function ConsultationPage() {
                   </TableCell>
                   <TableCell>
                     {getDoctorById(consultation.doctor_id)?.name || "Não encontrado"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(consultation.status)}>
-                      {consultation.status}
-                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="ghost" onClick={() => handleEdit(consultation)}>

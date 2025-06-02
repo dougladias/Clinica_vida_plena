@@ -1,13 +1,25 @@
-import { Consultation } from './consultation.type';
-
 export interface MedicalRecord {
   id: string;
   consultation_id: string;
-  diagnosis: string;
   notes: string;
+  diagnosis: string;
   created_at: string;
   updated_at: string;
-  consultation?: Consultation;
+  consultation?: {
+    id: string;
+    date: string;
+    time: string;
+    doctor: {
+      id: string;
+      name: string;
+      specialty: string;
+    };
+    patient: {
+      id: string;
+      name: string;
+      cpf: string;
+    };
+  };
 }
 
 export interface MedicalRecordStats {
@@ -17,20 +29,29 @@ export interface MedicalRecordStats {
   uniquePatients: number;
 }
 
-export interface CreateMedicalRecordDTO {
+export interface CreateMedicalRecordData {
   consultation_id: string;
-  diagnosis: string;
   notes: string;
+  diagnosis: string;
 }
 
-export interface UpdateMedicalRecordDTO {
+export interface UpdateMedicalRecordData {
   id: string;
-  diagnosis?: string;
   notes?: string;
+  diagnosis?: string;
 }
 
-// Define and export the ApiResponse type
-export interface ApiResponse {
-  success?: boolean;
-  error?: string;
+export interface MedicalRecordFilters {
+  consultation_id?: string;
+  patient_id?: string;
+  doctor_id?: string;
 }
+
+export interface MedicalRecordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  medicalRecord: MedicalRecord | null;
+  mode: 'create' | 'edit';
+  onSuccess: () => void;
+}
+

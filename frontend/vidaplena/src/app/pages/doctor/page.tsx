@@ -10,14 +10,14 @@ import {
   handleDeleteDoctor 
 } from '@/server/doctor/useDoctor';
 import { 
-  Medico, 
-  MedicosStats, 
+  Doctor,           
+  DoctorStats,      
   CreateDoctorData, 
   UpdateDoctorData 
 } from '@/types/doctor.type'; 
 
 // Importando componentes
-import { DoctorStats } from '@/components/pages/doctor/DoctorStats';
+import { DoctorStats as DoctorStatsComponent } from '@/components/pages/doctor/DoctorStats';
 import { SearchBar } from '@/components/pages/doctor/SearchBar';
 import { DoctorList } from '@/components/pages/doctor/DoctorList';
 import { SpecialtyList } from '@/components/pages/doctor/SpecialtyList';
@@ -27,9 +27,9 @@ import { PageHeader } from '@/components/pages/doctor/PageHeader';
 
 // Página principal do componente de médicos
 export default function DoctorPage() {  
-  // Estados
-  const [medicos, setMedicos] = useState<Medico[]>([]);
-  const [stats, setStats] = useState<MedicosStats>({
+  // Estados - TYPES ATUALIZADOS
+  const [medicos, setMedicos] = useState<Doctor[]>([]);            // ← MUDOU
+  const [stats, setStats] = useState<DoctorStats>({               // ← MUDOU
     totalMedicos: 0,
     especialidades: 0,
     consultasHoje: 0
@@ -40,11 +40,11 @@ export default function DoctorPage() {
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [selectedMedico, setSelectedMedico] = useState<Medico | null>(null);
+  const [selectedMedico, setSelectedMedico] = useState<Doctor | null>(null);  // ← MUDOU
   const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   
-  // Variantes de animação
+  // ... (variantes de animação permanecem iguais)
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -56,7 +56,6 @@ export default function DoctorPage() {
     }
   };
 
-  // Variantes de animação para itens individuais
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -66,7 +65,6 @@ export default function DoctorPage() {
     }
   };
 
-  // Variantes de animação para elementos flutuantes
   const floatingVariants = {
     animate: {
       y: ['-5%', '5%', '-5%'],
@@ -79,12 +77,10 @@ export default function DoctorPage() {
     }
   };
 
-  // Garantir que o componente está montado (para evitar problemas de hidratação)
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Carregar dados iniciais
   useEffect(() => {
     loadData();
   }, []);
@@ -98,13 +94,12 @@ export default function DoctorPage() {
         getDoctorStats()
       ]);
 
-      // Verifica se os dados foram carregados corretamente
       setMedicos(medicosData);
       if (statsData) {
         setStats(statsData);
       } else {
-        // Calcular estatísticas localmente se a API não retornar
-        const especialidades = [...new Set(medicosData.map((medico: Medico) => medico.specialty))];
+        // Campo atualizado: specialty
+        const especialidades = [...new Set(medicosData.map((medico: Doctor) => medico.specialty))];
         
         setStats({
           totalMedicos: medicosData.length,
@@ -113,7 +108,6 @@ export default function DoctorPage() {
         });
       }
 
-      // Limpar erros anteriores
       setError(null);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -123,34 +117,29 @@ export default function DoctorPage() {
     }
   };
 
-  // Handlers
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   };
 
-  // Handler para adicionar, editar e excluir médicos
   const handleAdd = () => {
     setSelectedMedico(null);
     setModalMode('create');
     setShowModal(true);
   };
 
-  // Handler para editar médico
-  const handleEdit = (medico: Medico) => {
+  const handleEdit = (medico: Doctor) => {   // ← TYPE ATUALIZADO
     setSelectedMedico(medico);
     setModalMode('edit');
     setShowModal(true);
   };
 
-  // Handler para excluir médico
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este médico?')) {
       return;
     }
 
-    // Chama a função de exclusão
     try {
       const result = await handleDeleteDoctor(id);
       if (result?.error) {
@@ -164,22 +153,21 @@ export default function DoctorPage() {
     }
   };
 
-  // Handler para o modal de formulário
+  // Handler atualizado para novos campos
   const handleFormSubmit = async (
-    formData: { nome: string; crm: string; especialidade: string; telefone: string; email: string },
+    formData: { name: string; crm: string; specialty: string; phone: string; email: string }, // ← CAMPOS ATUALIZADOS
     mode: 'create' | 'edit',
     id?: string
   ) => {
     if (mode === 'create') {
       const createData: CreateDoctorData = {
-        nome: formData.nome,
+        name: formData.name,           // ← NOVO CAMPO
         crm: formData.crm,
-        especialidade: formData.especialidade,
-        telefone: formData.telefone,
+        specialty: formData.specialty, // ← NOVO CAMPO
+        phone: formData.phone,         // ← NOVO CAMPO
         email: formData.email
       };
       
-      // Chama a função de criação
       const result = await handleCreateDoctor(createData);
       if (!result.error) {
         await loadData();
@@ -188,14 +176,13 @@ export default function DoctorPage() {
     } else if (mode === 'edit' && id) {
       const updateData: UpdateDoctorData = {
         id,
-        nome: formData.nome,
+        name: formData.name,           // ← NOVO CAMPO
         crm: formData.crm,
-        especialidade: formData.especialidade,
-        telefone: formData.telefone,
+        specialty: formData.specialty, // ← NOVO CAMPO
+        phone: formData.phone,         // ← NOVO CAMPO
         email: formData.email
       };
       
-      // Chama a função de atualização
       const result = await handleUpdateDoctor(updateData);
       if (!result.error) {
         await loadData();
@@ -206,10 +193,9 @@ export default function DoctorPage() {
     return { error: 'Modo inválido ou ID não fornecido' };
   };
 
-  // Filtros
-  const especialidades = [...new Set(medicos.map(m => m.specialty))];
+  // Campo atualizado
+  const especialidades = [...new Set(medicos.map(m => m.specialty))]; // ← CAMPO ATUALIZADO
 
-  // Elementos de background estilizados com base na página de login
   const backgroundElements = [
     { left: '5%', top: '15%', size: 200 },
     { left: '90%', top: '10%', size: 250 },
@@ -218,12 +204,10 @@ export default function DoctorPage() {
     { left: '40%', top: '30%', size: 160 }
   ];
 
-  // Verifica se o componente está montado antes de renderizar
   if (!isMounted) {
     return null; 
   }
 
-  // Renderiza o componente principal
   return (
     <motion.div
       variants={containerVariants}
@@ -266,7 +250,6 @@ export default function DoctorPage() {
           subtitle="Gerencie o corpo médico da clínica" 
         />
         
-        {/* Botão de adicionar médico */}
         <SearchBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -280,7 +263,7 @@ export default function DoctorPage() {
 
       {/* Cards de estatísticas */}
       <motion.div variants={itemVariants}>
-        <DoctorStats 
+        <DoctorStatsComponent 
           loading={loading} 
           stats={stats} 
           especialidades={especialidades}

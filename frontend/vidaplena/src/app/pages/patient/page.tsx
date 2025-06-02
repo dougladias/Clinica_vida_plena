@@ -12,11 +12,10 @@ import { PatientStats } from '@/components/pages/patient/PatientStats';
 import { PatientTable } from '@/components/pages/patient/PatientTable';
 import { PatientModal } from '@/components/pages/patient/PatientModal';
 
-// Types e Hooks
+// Types e Hooks - ATUALIZADOS
 import { Patient, PatientStats as PatientStatsType } from '@/types/patient.type';
 import { 
   getPatients, 
-  getActiveConsultations, 
   handleDeletePatient 
 } from '@/server/patient/usePatient';
 
@@ -52,17 +51,16 @@ export default function PatientsPage() {
     loadData();
   }, []);
 
+  // FUNÇÃO CORRIGIDA - sem getActiveConsultations
   const loadData = async () => {
     setLoading(true);
     try {
-      const [patientsData, consultationsData] = await Promise.all([
-        getPatients(),
-        getActiveConsultations(),
-      ]);
-
+      // Buscar apenas pacientes (remover getActiveConsultations)
+      const patientsData = await getPatients();
+      
       setPatients(patientsData);
 
-      // Calcular estatísticas
+      // Calcular estatísticas baseadas apenas nos pacientes
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
@@ -75,7 +73,7 @@ export default function PatientsPage() {
       setStats({
         total: patientsData.length,
         newThisMonth,
-        activeConsultations: consultationsData.length,
+        activeConsultations: 0, // ← Definir como 0 por enquanto
         activePatients: patientsData.length,
       });
     } catch (error) {

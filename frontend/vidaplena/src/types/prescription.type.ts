@@ -1,36 +1,75 @@
 export interface Medication {
   id: string;
+  prescription_id: string;
   name: string;
   dosage: string;
-  frequency: string;
-  duration: string;
-  prescription_id: string;
-  created_at: Date;
-  updated_at: Date;
+  instructions: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Prescription {
   id: string;
-  patient_id: string;
-  doctor_id: string;
-  date: Date;
-  notes?: string;
+  consultation_id: string;
+  created_at: string;
+  updated_at: string;
+  consultation?: {
+    id: string;
+    date: string;
+    time: string;
+    doctor: {
+      id: string;
+      name: string;
+      specialty: string;
+    };
+    patient: {
+      id: string;
+      name: string;
+      cpf: string;
+    };
+  };
   medications?: Medication[];
-  created_at: Date;
-  updated_at: Date;
 }
 
-export interface CreatePrescriptionDTO {
-  patient_id: string;
-  doctor_id: string;
-  date: Date;
-  notes?: string;
-  consultationId: string;
+export interface CreatePrescriptionData {
+  consultation_id: string;
+  medications: {
+    name: string;
+    dosage: string;
+    instructions: string;
+  }[];
 }
 
-export interface AddMedicationDTO {
+export interface AddMedicationData {
   name: string;
   dosage: string;
-  frequency: string;
-  duration: string;
+  instructions: string;
 }
+
+export interface UpdatePrescriptionData {
+  id: string;
+  consultation_id?: string;
+  notes?: string;
+}
+
+export interface PrescriptionFilters {
+  consultation_id?: string;
+  patient_id?: string;
+  doctor_id?: string;
+}
+
+export interface PrescriptionStats {
+  total: number;
+  thisMonth: number;
+  activePrescriptions: number;
+  totalMedications: number;
+}
+
+export interface PrescriptionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  prescription: Prescription | null;
+  mode: 'create' | 'edit';
+  onSuccess: () => void;
+}
+

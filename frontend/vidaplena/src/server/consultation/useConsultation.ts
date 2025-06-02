@@ -1,27 +1,22 @@
 "use server";
 
-import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { api } from '@/services/api';
-import { cookies } from 'next/headers';
-import { Consultation, ConsultationDoctor, ConsultationPatient, ApiResponse } from '@/types/consultation.type';
+import { api } from '@/services/api.service';
+import { getAuthToken, getAuthHeaders } from '@/lib/auth';
+import { handleApiError } from '@/lib/errorHandler';
+import { ApiResponse } from '@/types/api.type';
+import { 
+  Consultation,
+  CreateConsultationData,
+  UpdateConsultationData,
+  ConsultationFilters,
+  ConsultationDoctor,
+  ConsultationPatient
+} from '@/types/consultation.type';
 
-// Função para obter o token de autenticação
-async function getAuthToken(): Promise<string> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session')?.value;
-  
-  if (!token) {
-    redirect('/auth/login');
-  }
-  
-  return token;
-}
-
-// Buscar todas as consultas com normalização de datas
-export async function getConsultations(filters?: { doctor_id?: string; patient_id?: string; date?: string }): Promise<Consultation[]> {
-  try {
-    const token = await getAuthToken();
+// Buscar consultas com filtros
+export async function getConsultations(filters?: ConsultationFilters): Promise<Consultation[]> {
+  try {    
     
     let url = '/consultation';
     
@@ -29,14 +24,7 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
       const params = new URLSearchParams();
       if (filters.doctor_id) params.append('doctor_id', filters.doctor_id);
       if (filters.patient_id) params.append('patient_id', filters.patient_id);
-      
-      // Manter a data no formato original
-      if (filters.date) {
-        const dateObj = new Date(filters.date + 'T00:00:00');
-        if (!isNaN(dateObj.getTime())) {
-          params.append('date', filters.date);
-        }
-      }
+      if (filters.date) params.append('date', filters.date);
       
       const queryString = params.toString();
       if (queryString) {
@@ -46,32 +34,19 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
     
     console.log("Fazendo requisição para:", url);
     
-    const response = await api.get(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }      
-    });
+    const token = await getAuthToken();
+    const response = await api.get<Consultation[]>(url, {
+      headers: getAuthHeaders(token)   
+    })
 
-    // Define interface for raw API response
-    interface ApiConsultation extends Omit<Consultation, 'date'> {
-      date: string; 
-    }
-    
-    // Normalizar datas na resposta para evitar problemas de timezone
-    const consultations = response.data.map((consultation: ApiConsultation) => ({
+    // Normalizar datas
+    const consultations = response.data.map(consultation => ({
       ...consultation,
-      // Extrair apenas a parte da data (YYYY-MM-DD) ignorando timezone
       date: consultation.date.split('T')[0]
     }));
 
-    if (!consultations || consultations.length === 0) {
-      console.log('A API retornou uma lista vazia de consultas');
-    } else {
-      console.log(`A API retornou ${consultations.length} consultas`);
-      console.log('Primeira consulta (data normalizada):', consultations[0]);
-    }
-
-    return consultations as Consultation[];
+    console.log(`API retornou ${consultations.length} consultas`);
+    return consultations;
   } catch (error) {
     console.error('Erro ao buscar consultas:', error);
     return [];
@@ -79,103 +54,71 @@ export async function getConsultations(filters?: { doctor_id?: string; patient_i
 }
 
 // Criar consulta
-export async function handleCreateConsultation(formData: FormData): Promise<ApiResponse> {
-  const date = formData.get("date") as string;
-  const time = formData.get("time") as string;
-  const doctor_id = formData.get("doctor_id") as string;
-  const patient_id = formData.get("patient_id") as string;
-  const status = formData.get("status") as string || "Agendada";
+export async function handleCreateConsultation(data: CreateConsultationData): Promise<ApiResponse> {
+  // Validações
+  if (!data.date) {
+    return { error: "Data é obrigatória" };
+  }
 
-  if (!date || !time || !doctor_id || !patient_id) {
-    return { error: "Todos os campos são obrigatórios" };
+  if (!data.time) {
+    return { error: "Horário é obrigatório" };
+  }
+
+  if (!data.doctor_id) {
+    return { error: "Médico é obrigatório" };
+  }
+
+  if (!data.patient_id) {
+    return { error: "Paciente é obrigatório" };
+  }
+
+  // Validar se a data não é no passado
+  const consultationDate = new Date(data.date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (consultationDate < today) {
+    return { error: "Não é possível agendar consulta para data passada" };
   }
 
   try {
     const token = await getAuthToken();
     
-    await api.post('/consultation', {
-      date,
-      time,
-      doctor_id,
-      patient_id,
-      status
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    await api.post('/consultation', data, {
+      headers: getAuthHeaders(token)
     });
 
     revalidatePath('/pages/consultation');
     return { success: true };
   } catch(err) {
-    console.log(err);
-    interface ApiError {
-      response?: {
-        data?: {
-          error?: string;
-        };
-      };
-    }
-    const apiError = err as ApiError;
-    if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
-      return { error: apiError.response.data.error };
-    }
-    return { error: "Erro ao criar consulta" };
+    return { error: handleApiError(err) };
   }
 }
 
 // Atualizar consulta
-export async function handleUpdateConsultation(formData: FormData): Promise<ApiResponse> {
-  const id = formData.get("id") as string;
-  const date = formData.get("date") as string;
-  const time = formData.get("time") as string;
-  const doctor_id = formData.get("doctor_id") as string;
-  const patient_id = formData.get("patient_id") as string;
-  const status = formData.get("status") as string;
-
-  if (!id) {
+export async function handleUpdateConsultation(data: UpdateConsultationData): Promise<ApiResponse> {
+  if (!data.id) {
     return { error: "ID é obrigatório" };
   }
 
   try {
     const token = await getAuthToken();
     
-    const updateData: { 
-      date?: string; 
-      time?: string; 
-      doctor_id?: string; 
-      patient_id?: string;
-      status?: string;
-    } = {};
-    
-    if (date) updateData.date = date;
-    if (time) updateData.time = time;
-    if (doctor_id) updateData.doctor_id = doctor_id;
-    if (patient_id) updateData.patient_id = patient_id;
-    if (status) updateData.status = status;
-    
-    await api.put(`/consultation/${id}`, updateData, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    // Remove campos vazios
+    const updateData = Object.fromEntries(
+      Object.entries(data).filter(([key, value]) => 
+        key === 'id' || (value !== undefined && value !== null && value !== '')
+      )
+    );
+
+    await api.put(`/consultation/${data.id}`, updateData, {
+      headers: getAuthHeaders(token)
     });
 
     revalidatePath('/pages/consultation');
     return { success: true };
   } catch(err) {
-    console.log(err);
-    interface ApiError {
-      response?: {
-        data?: {
-          error?: string;
-        };
-      };
-    }
-    const apiError = err as ApiError;
-    if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
-      return { error: apiError.response.data.error };
-    }
-    return { error: "Erro ao atualizar consulta" };
+    return { error: handleApiError(err) };
   }
 }
 
@@ -189,62 +132,127 @@ export async function handleDeleteConsultation(id: string): Promise<ApiResponse>
     const token = await getAuthToken();
     
     await api.delete(`/consultation/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: getAuthHeaders(token)
     });
 
     revalidatePath('/pages/consultation');
     return { success: true };
   } catch(err) {
-    console.log(err);
-    interface ApiError {
-      response?: {
-        data?: {
-          error?: string;
-        };
-      };
-    }
-    const apiError = err as ApiError;
-    if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
-      return { error: apiError.response.data.error };
-    }
-    return { error: "Erro ao excluir consulta" };
+    return { error: handleApiError(err) };
   }
 }
 
-// Buscar médicos para o dropdown
+// Buscar médicos para dropdown na página de consultas
 export async function getDoctors(): Promise<ConsultationDoctor[]> {
   try {
     const token = await getAuthToken();
     
-    const response = await api.get('/doctor', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }      
+    const response = await api.get<ConsultationDoctor[]>('/doctor', {
+      headers: getAuthHeaders(token)     
     });
 
+    console.log('Médicos carregados para consultas:', response.data.length);
     return response.data;
   } catch (error) {
-    console.log('Erro ao buscar médicos:', error);
+    console.error('Erro ao buscar médicos para consultas:', error);
     return [];
   }
 }
 
-// Buscar pacientes para o dropdown
+// Buscar pacientes para dropdown na página de consultas
 export async function getPatients(): Promise<ConsultationPatient[]> {
   try {
     const token = await getAuthToken();
     
-    const response = await api.get('/patient', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }      
+    const response = await api.get<ConsultationPatient[]>('/patient', {
+      headers: getAuthHeaders(token)     
     });
 
+    console.log('Pacientes carregados para consultas:', response.data.length);
     return response.data;
   } catch (error) {
-    console.log('Erro ao buscar pacientes:', error);
+    console.error('Erro ao buscar pacientes para consultas:', error);
     return [];
+  }
+}
+
+// Buscar consulta por ID (função útil para detalhes)
+export async function getConsultationById(id: string): Promise<Consultation | null> {
+  if (!id) {
+    return null;
+  }
+
+  try {
+    const token = await getAuthToken();
+    
+    const response = await api.get<Consultation>(`/consultation/${id}`, {
+      headers: getAuthHeaders(token)
+    });
+    
+    // Normalizar data
+    return {
+      ...response.data,
+      date: response.data.date.split('T')[0]
+    };
+  } catch (error) {
+    console.error(`Erro ao buscar consulta ${id}:`, error);
+    return null;
+  }
+}
+
+// Buscar consultas de um médico específico
+export async function getConsultationsByDoctor(doctorId: string, date?: string): Promise<Consultation[]> {
+  return getConsultations({ doctor_id: doctorId, date });
+}
+
+// Buscar consultas de um paciente específico
+export async function getConsultationsByPatient(patientId: string, date?: string): Promise<Consultation[]> {
+  return getConsultations({ patient_id: patientId, date });
+}
+
+// Buscar consultas de hoje
+export async function getTodayConsultations(): Promise<Consultation[]> {
+  const today = new Date().toISOString().split('T')[0];
+  return getConsultations({ date: today });
+}
+
+// Buscar estatísticas de consultas
+export async function getConsultationStats() {
+  try {    
+    
+    // Como não temos endpoint específico de stats, buscamos todas as consultas
+    const consultations = await getConsultations();
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Calcular estatísticas
+    const todayConsultations = consultations.filter(c => 
+      c.date.split('T')[0] === today
+    );
+    
+    return {
+      total: consultations.length,
+      today: todayConsultations.length,
+      thisWeek: consultations.filter(c => {
+        const consultationDate = new Date(c.date);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return consultationDate >= weekAgo;
+      }).length,
+      thisMonth: consultations.filter(c => {
+        const consultationDate = new Date(c.date);
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return consultationDate >= monthAgo;
+      }).length
+    };
+  } catch (error) {
+    console.error('Erro ao calcular estatísticas de consultas:', error);
+    return {
+      total: 0,
+      today: 0,
+      thisWeek: 0,
+      thisMonth: 0
+    };
   }
 }

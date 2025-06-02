@@ -1,5 +1,5 @@
 import { getCookie, deleteCookie } from 'cookies-next';
-import { api } from '@/services/api';
+import { api } from '@/services/api.service';
 
 export function getCookieClient() {
   // Obtém o cookie pelo nome

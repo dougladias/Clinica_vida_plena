@@ -2,14 +2,14 @@ import React from 'react';
 import { Loader2, UserCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DoctorCard } from './DoctorCard';
-import { Medico } from '@/types/doctor.type';
+import { Doctor } from '@/types/doctor.type'; // ← TYPE ATUALIZADO
 
 interface DoctorListProps {
   loading: boolean;
-  medicos: Medico[];
+  medicos: Doctor[]; // ← TYPE ATUALIZADO
   searchTerm: string;
   selectedEspecialidade: string;
-  onEdit: (medico: Medico) => void;
+  onEdit: (medico: Doctor) => void; // ← TYPE ATUALIZADO
   onDelete: (id: string) => void;
 }
 

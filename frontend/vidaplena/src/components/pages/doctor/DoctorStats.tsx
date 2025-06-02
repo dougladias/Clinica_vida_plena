@@ -2,11 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { UserCheck, Award, Stethoscope, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MedicosStats } from '@/types/doctor.type';
+import { DoctorStats as DoctorStatsType } from '@/types/doctor.type'; // ← TYPE ATUALIZADO
 
 interface DoctorStatsProps {
   loading: boolean;
-  stats: MedicosStats;
+  stats: DoctorStatsType; // ← TYPE ATUALIZADO
   especialidades: string[];
 }
 

@@ -1,126 +1,94 @@
 "use server";
 
-import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { api } from '@/services/api';
-import { cookies } from 'next/headers';
-import { 
-  Medico, 
-  MedicosStats, 
-  CreateDoctorData, 
-  UpdateDoctorData,
-  ApiResponse
-} from '@/types/doctor.type';
-
-// Função para obter o token de autenticação
-async function getAuthToken(): Promise<string> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('session')?.value;
-  
-  // Verifica se o token existe, caso contrário redireciona para a página de login
-  if (!token) {
-    redirect('/auth/login');
-  }
-  
-  return token;
-}
+import { api } from '@/services/api.service';
+import { getAuthToken, getAuthHeaders } from '@/lib/auth';
+import { handleApiError } from '@/lib/errorHandler';
+import { ApiResponse } from '@/types/api.type';
+import { Doctor, CreateDoctorData, UpdateDoctorData, DoctorStats } from '@/types/doctor.type';
 
 // Buscar todos os médicos
-export async function getDoctors(): Promise<Medico[]> {
+export async function getDoctors(): Promise<Doctor[]> {
   try {
     const token = await getAuthToken();
     
-    // Faz a requisição para a API de médicos
-    const response = await api.get('/doctor', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }      
+    const response = await api.get<Doctor[]>('/doctor', {
+      headers: getAuthHeaders(token)     
     });
 
-    // Log para depuração
     console.log('Resposta da API de médicos:', response.data);
     return response.data;
   } catch (error) {
-    console.log('Erro ao buscar médicos:', error);
+    console.error('Erro ao buscar médicos:', error);
     return [];
   }
 }
 
-// Buscar estatísticas dos médicos - Ajustado para calcular localmente
-export async function getDoctorStats(): Promise<MedicosStats | null> {
+// Buscar estatísticas dos médicos
+export async function getDoctorStats(): Promise<DoctorStats | null> {
   try {
     const token = await getAuthToken();
     
-    // Como não temos o endpoint /doctor/stats no backend,
-    // vamos calcular as estatísticas diretamente com os dados dos médicos
-    const response = await api.get('/doctor', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }      
+    const response = await api.get<Doctor[]>('/doctor', {
+      headers: getAuthHeaders(token)     
     });
 
     if (response.data) {
-      const medicos = response.data as Medico[];
-      // Extraímos as especialidades únicas
+      const medicos = response.data;
       const especialidades = [...new Set(medicos.map(medico => medico.specialty))];
       
-      // Retornamos as estatísticas calculadas
       return {
         totalMedicos: medicos.length,
         especialidades: especialidades.length,
-        consultasHoje: 0 // Não temos essa informação, então deixamos zero
+        consultasHoje: 0 // Implementar endpoint específico no backend
       };
     }
     
     return null;
   } catch (error) {
-    console.log('Erro ao calcular estatísticas:', error);
+    console.error('Erro ao calcular estatísticas:', error);
     return null;
   }
 }
 
 // Criar médico
 export async function handleCreateDoctor(dadosDoctor: CreateDoctorData): Promise<ApiResponse> {
-  // Verifica se todos os campos estão preenchidos
-  if (!dadosDoctor.nome || !dadosDoctor.crm || !dadosDoctor.especialidade || 
-      !dadosDoctor.telefone || !dadosDoctor.email) {
-    return { error: "Todos os campos são obrigatórios" };
+  // Validações
+  if (!dadosDoctor.name?.trim()) {
+    return { error: "Nome é obrigatório" };
+  }
+
+  if (!dadosDoctor.crm?.trim()) {
+    return { error: "CRM é obrigatório" };
+  }
+
+  if (!dadosDoctor.specialty?.trim()) {
+    return { error: "Especialidade é obrigatória" };
+  }
+
+  if (!dadosDoctor.phone?.trim()) {
+    return { error: "Telefone é obrigatório" };
+  }
+
+  if (!dadosDoctor.email?.trim()) {
+    return { error: "Email é obrigatório" };
+  }
+
+  if (!dadosDoctor.email.includes('@')) {
+    return { error: "Email inválido" };
   }
 
   try {
     const token = await getAuthToken();
     
-    // Ajustando os nomes dos campos para corresponder ao backend
-    await api.post('/doctor', {
-      name: dadosDoctor.nome,
-      crm: dadosDoctor.crm,
-      specialty: dadosDoctor.especialidade,
-      phone: dadosDoctor.telefone,
-      email: dadosDoctor.email
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    await api.post('/doctor', dadosDoctor, {
+      headers: getAuthHeaders(token)
     });
 
-    // Revalida o caminho para atualizar a lista de médicos
     revalidatePath('/pages/doctor');
     return { success: true };
   } catch(err) {
-    console.log(err);
-    interface ApiError {
-      response?: {
-        data?: {
-          error?: string;
-        };
-      };
-    }
-    // Captura erros específicos da API
-    const apiError = err as ApiError;
-    if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
-      return { error: apiError.response.data.error };
-    }
-    return { error: "Erro ao criar médico" };
+    return { error: handleApiError(err) };
   }
 }
 
@@ -130,43 +98,30 @@ export async function handleUpdateDoctor(dadosDoctor: UpdateDoctorData): Promise
     return { error: "ID é obrigatório" };
   }
 
+  // Validações dos campos que serão atualizados
+  if (dadosDoctor.email && !dadosDoctor.email.includes('@')) {
+    return { error: "Email inválido" };
+  }
+
   try {
     const token = await getAuthToken();
     
-    // Ajustando os nomes dos campos para corresponder ao backend
     const updateData = {
-      name: dadosDoctor.nome,
+      name: dadosDoctor.name,
       crm: dadosDoctor.crm,
-      specialty: dadosDoctor.especialidade,
-      phone: dadosDoctor.telefone,
+      specialty: dadosDoctor.specialty,
+      phone: dadosDoctor.phone,
       email: dadosDoctor.email
     };
     
-    // Faz a requisição para atualizar o médico
     await api.put(`/doctor/${dadosDoctor.id}`, updateData, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: getAuthHeaders(token)
     });
 
-    // Revalida o caminho para atualizar a lista de médicos
     revalidatePath('/pages/doctor');
     return { success: true };
   } catch(err) {
-    console.log(err);
-    interface ApiError {
-      response?: {
-        data?: {
-          error?: string;
-        };
-      };
-    }
-    // Captura erros específicos da API
-    const apiError = err as ApiError;
-    if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
-      return { error: apiError.response.data.error };
-    }
-    return { error: "Erro ao atualizar médico" };
+    return { error: handleApiError(err) };
   }
 }
 
@@ -180,28 +135,12 @@ export async function handleDeleteDoctor(id: string): Promise<ApiResponse> {
     const token = await getAuthToken();
     
     await api.delete(`/doctor/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: getAuthHeaders(token)
     });
 
-    // Revalida o caminho para atualizar a lista de médicos
     revalidatePath('/pages/doctor');
     return { success: true };
   } catch(err) {
-    console.log(err);
-    interface ApiError {
-      response?: {
-        data?: {
-          error?: string;
-        };
-      };
-    }
-    // Captura erros específicos da API
-    const apiError = err as ApiError;
-    if (typeof err === "object" && err !== null && "response" in err && apiError.response?.data?.error) {
-      return { error: apiError.response.data.error };
-    }
-    return { error: "Erro ao excluir médico" };
+    return { error: handleApiError(err) };
   }
 }
