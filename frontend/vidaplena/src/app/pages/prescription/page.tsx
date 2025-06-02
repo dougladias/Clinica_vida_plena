@@ -10,8 +10,7 @@ import {
   Calendar,
   User,
   Stethoscope,
-  Pill,
-  Printer,
+  Pill,  
   Loader2,
   AlertCircle,
   CheckCircle,
@@ -645,16 +644,7 @@ export default function PrescriptionPage() {
                       title="Adicionar medicamento"
                     >
                       <Plus className="w-4 h-4" />
-                    </motion.button>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="p-2 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
-                      title="Imprimir receita"
-                    >
-                      <Printer className="w-4 h-4" />
-                    </motion.button>
+                    </motion.button>    
                   </div>
                 </motion.div>
               );

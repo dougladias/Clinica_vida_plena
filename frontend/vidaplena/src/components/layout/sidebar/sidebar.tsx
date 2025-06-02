@@ -95,7 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab: externalActiveTab, setActi
 
       {/* Área de navegação - SEM animação de montagem nos itens */}
       <div className="h-[calc(100vh-72px)] overflow-y-auto px-4 py-4">
-        <nav className="space-y-1">
+        <nav className="space-y-1.5">
           {navigationItems.map((item) => {
             const Icon = item.icon;
             // Verifica se está ativo com base no pathname ou no activeTab
@@ -106,36 +106,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab: externalActiveTab, setActi
                 <a
                   href={item.path} 
                   onClick={(e) => handleNavigation(item.path, item.id, e)}
-                  className="block"
+                  className="block outline-none focus:outline-none"
                 >
                   <motion.div
                     whileHover={{ 
-                      x: 4,
-                      backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(243, 244, 246, 1)'
+                      x: 6, 
+                      backgroundColor: theme === 'dark' 
+                        ? 'rgba(59, 130, 246, 0.12)' 
+                        : 'rgba(243, 244, 246, 1)'
                     }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`relative flex items-center space-x-3 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: 400,
+                      damping: 17,
+                      mass: 0.8
+                    }}
+                    className={`relative flex items-center overflow-hidden space-x-3 px-4 py-3 rounded-lg cursor-pointer ${
                       isActive
                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white shadow-md'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                        : 'text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-300'
                     }`}
                   >
-                    <motion.div
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.6 }}
-                      className="flex items-center justify-center"
-                    >
+                    {/* Ícone */}
+                    <div className="flex items-center justify-center relative z-10">
                       <Icon className="w-5 h-5" />
-                    </motion.div>
+                    </div>
                     
-                    <span className="font-medium">{item.label}</span>
+                    {/* Texto */}
+                    <span className="font-medium relative z-10">{item.label}</span>
                     
+                    {/* Indicador ativo melhorado */}
                     {isActive && (
-                      <motion.div
-                        layoutId="activeTabIndicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-white dark:bg-blue-400 rounded-r"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
+                      <>
+                        {/* Linha vertical esquerda */}
+                        <motion.div
+                          layoutId="activeTabIndicator"
+                          className="absolute left-0 top-1/2 bottom-0 w-1 h-12 -translate-y-1/2 bg-white/70 dark:bg-blue-400 rounded-full"
+                          style={{ pointerEvents: 'none' }}
+                          transition={{ type: "spring", stiffness: 300, damping: 26 }}
+                        />
+                        
+                        {/* Brilho sutil */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent dark:from-blue-400/5 dark:to-transparent rounded-lg" 
+                             style={{ pointerEvents: 'none' }} />
+                      </>
                     )}
                   </motion.div>
                 </a>
@@ -144,19 +159,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab: externalActiveTab, setActi
           })}
         </nav>
 
-        {/* Elemento decorativo na parte inferior - SEM animação de montagem */}
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-blue-50/50 dark:from-slate-800/50 to-transparent pointer-events-none">
+        {/* Elemento decorativo na parte inferior - Design melhorado */}
+        <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-white/90 dark:from-slate-900/90 to-transparent pointer-events-none flex items-center justify-center">
           <motion.div
             animate={{ 
               y: [10, -10, 10],
-              opacity: [0.3, 0.7, 0.3]
+              opacity: [0.2, 0.5, 0.2]
             }}
             transition={{ 
-              duration: 4, 
+              duration: 5, 
               repeat: Infinity,
               repeatType: "reverse" 
             }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 w-16 h-1 rounded-full bg-gradient-to-r from-blue-400 to-emerald-400 opacity-30"
+            className="absolute bottom-10 left-1/2 -translate-x-1/2 w-20 h-1 rounded-full bg-gradient-to-r from-blue-400/40 to-emerald-400/40 blur-sm"
           />
         </div>
       </div>
