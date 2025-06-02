@@ -19,10 +19,26 @@ const Header: React.FC<HeaderProps> = ({
   // Estado interno para quando as props não são fornecidas  
   const [showUserMenu, setShowUserMenu] = useState(false);
     
-  const handleLogout = () => {
-    // Usa a função de logout que limpa cookie e redireciona
-    logoutClient();
-    setShowUserMenu(false);
+  const handleLogout = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Previne a propagação do evento para o overlay
+    e.stopPropagation();
+    
+    console.log("Iniciando logout...");
+    
+    try {
+      // Primeiro, feche o menu do usuário para dar feedback visual
+      setShowUserMenu(false);
+      
+      // Use setTimeout para garantir que o estado seja atualizado antes do redirecionamento
+      setTimeout(() => {
+        console.log("Executando logoutClient...");
+        logoutClient();
+      }, 100);
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+      // Em caso de falha, redireciona diretamente
+      window.location.href = '/auth/login';
+    }
   };
 
   return (
@@ -59,16 +75,17 @@ const Header: React.FC<HeaderProps> = ({
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-2"
+                className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-2 z-50" // Aumentado o z-index para 50
               >
                 <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Usuário</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">admin@vidaplena.com</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Admin</p>
                 </div>
                 
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+                  style={{ zIndex: 50 }} // Garantir que o botão esteja em camada superior
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Sair</span>

@@ -1,8 +1,8 @@
 "use server";
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { api } from '@/services/api.service';
-import { cookies } from 'next/headers';
 import { handleApiError } from '@/lib/errorHandler';
 
 // Interface para a resposta de login

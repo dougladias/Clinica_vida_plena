@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, User, Heart } from 'lucide-react';
 import { handleLogin } from '@/server/auth/useAuth';
 import FormField from './FormField';
@@ -11,8 +11,9 @@ const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Variantes de animação para os componentes
   const containerVariants = {
@@ -33,6 +34,42 @@ const LoginForm: React.FC = () => {
       opacity: 1,
       y: 0,
       transition: { duration: 0.5 }
+    }
+  };
+
+  // Função para lidar com a submissão do formulário
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('rememberMe', String(rememberMe)); // FormData expects string or Blob values
+
+      // Se handleLogin for uma Server Action
+      const result = await handleLogin(formData);
+      
+      if (result?.error) {
+        setError(result.error);
+      }      
+
+      // Se o login for bem-sucedido, redireciona para o dashboard
+       if (result?.success) {
+         window.location.href = "/pages/dashboard";
+       }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (typeof err === 'string') {
+        setError(err);
+      } else {
+        setError("Erro ao fazer login. Tente novamente.");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -67,7 +104,7 @@ const LoginForm: React.FC = () => {
           </p>
         </div>
 
-        <form action={handleLogin} className="space-y-5 text-slate-800">
+        <form onSubmit={handleSubmit} className="space-y-5 text-slate-800">
           {/* Email Field */}
           <FormField
             label="Email"
@@ -138,42 +175,42 @@ const LoginForm: React.FC = () => {
             </motion.a>
           </motion.div>
 
+          {/* Mensagem de Erro */}
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm"
+            >
+              {error}
+            </motion.div>
+          )}
+
           {/* Login Button */}
           <motion.div variants={itemVariants}>
             <motion.button
+              type="submit"
+              disabled={isSubmitting}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-500 to-emerald-500 text-white py-2.5 px-5 rounded-lg font-medium shadow hover:shadow-md transition-all duration-300 flex items-center justify-center space-x-1.5"
+              className={`w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg text-white font-medium flex items-center justify-center transition-all ${
+                isSubmitting ? 'opacity-70' : ''
+              }`}
             >
-              <AnimatePresence mode="wait">
-                {isLoading ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center space-x-2"
-                  >
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                    />
-                    <span>Entrando...</span>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center space-x-1.5"
-                  >
-                    <span>Entrar no Sistema</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {isSubmitting ? (
+                <>
+                  <span className="mr-2">Entrando...</span>
+                  <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  <span>Entrar</span>
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </>
+              )}
             </motion.button>
           </motion.div>
         </form>
