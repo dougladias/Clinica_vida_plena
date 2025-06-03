@@ -150,7 +150,7 @@ const LoginForm: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Remember Me & Forgot Password */}
+          {/* subscribe */}
           <motion.div
             variants={itemVariants}
             className="flex items-center justify-between"
@@ -168,10 +168,10 @@ const LoginForm: React.FC = () => {
 
             <motion.a
               whileHover={{ scale: 1.03 }}
-              href="#"
+              href="/auth/register"  
               className="text-xs text-blue-600 hover:text-blue-700 font-medium"
             >
-              Esqueceu a senha?
+              Registre-se?
             </motion.a>
           </motion.div>
 
